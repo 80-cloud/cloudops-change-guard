@@ -1,0 +1,33 @@
+# 結合テスト用。DataSource は Testcontainers が動的に注入する（@DynamicPropertySource）。
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    secret: test-secret-test-secret-test-secret-32bytes-minimum
+    access-ttl-seconds: 900
+    refresh-ttl-seconds: 1209600
+    cookie-secure: false
+  cors:
+    allowed-origin: http://localhost:5177
+  seed:
+    enabled: false      # テストは必要データを各テストで用意する
+    admin-username: admin
+    admin-password: test-admin-pw
+    default-password: test-pw
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

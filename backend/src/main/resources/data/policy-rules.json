@@ -1,0 +1,82 @@
+[
+  {
+    "code": "PROD_RDS_DELETE_BLOCK",
+    "name": "本番RDS削除のブロック",
+    "description": "本番環境のRDS削除/置換はデータ消失と全断に直結するため実行をブロックする。削除が必要な場合は別途の承認プロセスと事前バックアップ確認が要る。",
+    "environmentScope": "production",
+    "effect": "BLOCK",
+    "appliesToRuleCodes": ["RDS_DELETE_OR_REPLACE"],
+    "message": "本番環境のRDS削除/置換はポリシーにより実行できません。事前バックアップ確認と正規の承認プロセスが必要です。",
+    "enabled": true
+  },
+  {
+    "code": "PROD_S3_DELETE_BLOCK",
+    "name": "本番S3削除のブロック",
+    "description": "本番環境のS3バケット削除はオブジェクト/state消失に直結するためブロックする。",
+    "environmentScope": "production",
+    "effect": "BLOCK",
+    "appliesToRuleCodes": ["S3_BUCKET_DELETE"],
+    "message": "本番環境のS3バケット削除はポリシーにより実行できません。バージョニング/複製の確認が必要です。",
+    "enabled": true
+  },
+  {
+    "code": "SG_OPEN_WORLD_BLOCK",
+    "name": "セキュリティグループ全世界公開のブロック",
+    "description": "受信を 0.0.0.0/0 に許可する変更は攻撃面を最大化するためブロックする。許可元はSG/自IPに限定する。",
+    "environmentScope": "ALL",
+    "effect": "BLOCK",
+    "appliesToRuleCodes": ["SG_OPEN_WORLD"],
+    "message": "0.0.0.0/0 への公開はポリシーによりブロックされます。許可元を限定してください。",
+    "enabled": true
+  },
+  {
+    "code": "SSH_22_OPEN_WORLD_BLOCK",
+    "name": "SSH22全世界公開のブロック",
+    "description": "SSH(22)を 0.0.0.0/0 に開放する変更は総当たりの直撃を受けるためブロックする。Session Manager か送信元限定に切り替える。",
+    "environmentScope": "ALL",
+    "effect": "BLOCK",
+    "appliesToRuleCodes": ["SSH_22_OPEN_WORLD"],
+    "message": "SSH(22)の全世界公開はポリシーによりブロックされます。Session Manager か送信元限定を使用してください。",
+    "enabled": true
+  },
+  {
+    "code": "IAM_ADMIN_ADDITIONAL_APPROVAL",
+    "name": "IAM管理者権限付与の追加承認",
+    "description": "AdministratorAccess 等の全権付与は、通常の承認段数に加え追加の承認を必須にする。",
+    "environmentScope": "ALL",
+    "effect": "REQUIRE_ADDITIONAL_APPROVAL",
+    "appliesToRuleCodes": ["IAM_ADMIN_ACCESS"],
+    "message": "管理者権限の付与には追加の承認が必要です。",
+    "enabled": true
+  },
+  {
+    "code": "CW_ALARM_DELETE_REASON",
+    "name": "CloudWatch Alarm削除の理由必須",
+    "description": "アラーム削除は監視の穴を作るため、削除理由(恒久/一時)の入力を必須にする。",
+    "environmentScope": "ALL",
+    "effect": "REQUIRE_REASON",
+    "appliesToRuleCodes": ["CW_ALARM_DELETE"],
+    "message": "CloudWatch アラームの削除には理由の入力が必要です。",
+    "enabled": true
+  },
+  {
+    "code": "EC2_REPLACE_WINDOW",
+    "name": "本番EC2置換のメンテナンス時間必須",
+    "description": "本番EC2の置換はダウンタイムを伴うため、メンテナンス時間(実施予定日時)の登録を必須にする。",
+    "environmentScope": "production",
+    "effect": "REQUIRE_MAINTENANCE_WINDOW",
+    "appliesToRuleCodes": ["PROD_EC2_REPLACE"],
+    "message": "本番EC2の置換にはメンテナンス時間(実施予定日時)の登録が必要です。",
+    "enabled": true
+  },
+  {
+    "code": "CRITICAL_DUAL_APPROVAL",
+    "name": "CRITICAL変更の二重承認",
+    "description": "リスクレベルが CRITICAL の変更は、申請者以外の REVIEWER 2名以上の承認を必須にする。",
+    "environmentScope": "ALL",
+    "effect": "REQUIRE_DUAL_APPROVAL",
+    "appliesToRiskLevels": ["CRITICAL"],
+    "message": "CRITICAL の変更には、申請者以外の異なる2名以上の承認が必要です。",
+    "enabled": true
+  }
+]

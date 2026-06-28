@@ -1,0 +1,27 @@
+{
+  "_comment": "環境 × リスクレベル の承認要件マトリクス。承認(approve)・実行開始(start)の状態遷移ガードがこの表を参照する。requiredReviewerApprovals は APPROVED へ進むのに必要な REVIEWER 承認数。distinctApprovers=true は異なる承認者であること。",
+  "invariants": {
+    "selfApprovalProhibited": true,
+    "editLockedAfterApproved": true,
+    "startRequiresRequiredPreChecksInProd": true,
+    "blockPolicyPreventsApproveAndStart": true,
+    "note": "上記は設定で緩められないシステム不変条件。状態遷移ステートマシンで強制する（申請者は自分の申請を承認不可・承認済み以降は申請者編集不可・本番は必須チェック完了まで実行開始不可・BLOCK違反が残る変更はAPPROVED/IN_PROGRESSへ遷移不可）。"
+  },
+  "developmentLowAutoApprove": true,
+  "matrix": [
+    { "environment": "development", "riskLevel": "LOW", "requiredReviewerApprovals": 0, "distinctApprovers": false, "requireScheduledAt": false, "requireRollbackProcedure": false, "requirePreChecksComplete": false },
+    { "environment": "development", "riskLevel": "MEDIUM", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": false, "requireRollbackProcedure": false, "requirePreChecksComplete": false },
+    { "environment": "development", "riskLevel": "HIGH", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": false, "requireRollbackProcedure": false, "requirePreChecksComplete": false },
+    { "environment": "development", "riskLevel": "CRITICAL", "requiredReviewerApprovals": 2, "distinctApprovers": true, "requireScheduledAt": false, "requireRollbackProcedure": true, "requirePreChecksComplete": false },
+
+    { "environment": "staging", "riskLevel": "LOW", "requiredReviewerApprovals": 0, "distinctApprovers": false, "requireScheduledAt": false, "requireRollbackProcedure": false, "requirePreChecksComplete": false },
+    { "environment": "staging", "riskLevel": "MEDIUM", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": false, "requireRollbackProcedure": false, "requirePreChecksComplete": false },
+    { "environment": "staging", "riskLevel": "HIGH", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": true, "requireRollbackProcedure": true, "requirePreChecksComplete": false },
+    { "environment": "staging", "riskLevel": "CRITICAL", "requiredReviewerApprovals": 2, "distinctApprovers": true, "requireScheduledAt": true, "requireRollbackProcedure": true, "requirePreChecksComplete": true },
+
+    { "environment": "production", "riskLevel": "LOW", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": false, "requireRollbackProcedure": false, "requirePreChecksComplete": true },
+    { "environment": "production", "riskLevel": "MEDIUM", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": true, "requireRollbackProcedure": true, "requirePreChecksComplete": true },
+    { "environment": "production", "riskLevel": "HIGH", "requiredReviewerApprovals": 1, "distinctApprovers": false, "requireScheduledAt": true, "requireRollbackProcedure": true, "requirePreChecksComplete": true },
+    { "environment": "production", "riskLevel": "CRITICAL", "requiredReviewerApprovals": 2, "distinctApprovers": true, "requireScheduledAt": true, "requireRollbackProcedure": true, "requirePreChecksComplete": true }
+  ]
+}

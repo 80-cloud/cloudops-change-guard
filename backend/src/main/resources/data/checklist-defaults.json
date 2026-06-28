@@ -1,0 +1,26 @@
+{
+  "_comment": "実施前チェック(pre_execution_checks)と実施後ヘルスチェック(post_execution_health_checks)の標準項目。変更申請の作成時/実行準備時にこの雛形から生成する。requiredInProd=true は本番で必須(完了まで IN_PROGRESS へ遷移不可)。",
+  "preExecutionChecks": [
+    { "checkType": "BACKUP", "label": "バックアップ確認", "requiredInProd": true, "hint": "対象データの自動/手動バックアップ・スナップショットがあり復旧可能か（aws-zukan: backup）" },
+    { "checkType": "ROLLBACK", "label": "ロールバック手順確認", "requiredInProd": true, "hint": "失敗時に戻す手順が用意され、削除保護(prevent_destroy/deletion protection)を確認したか（deploy-audit⑥）" },
+    { "checkType": "MONITORING", "label": "監視設定確認", "requiredInProd": true, "hint": "関連アラーム/メトリクスが有効で、変更で監視が欠けないか" },
+    { "checkType": "IMPACT", "label": "影響範囲確認", "requiredInProd": true, "hint": "plan差分の削除/置換を目視し、環境固有値の外部化・コスト影響を確認したか（deploy-audit②③⑤）" },
+    { "checkType": "STAKEHOLDER", "label": "関係者連絡確認", "requiredInProd": true, "hint": "影響を受ける関係者へ事前連絡したか" },
+    { "checkType": "WINDOW", "label": "実施時間帯確認", "requiredInProd": true, "hint": "メンテナンス枠/低負荷時間帯で実施するか" },
+    { "checkType": "APPROVAL", "label": "承認完了確認", "requiredInProd": true, "hint": "必要な承認(環境×リスクの段数)が揃っているか" }
+  ],
+  "postExecutionHealthChecks": [
+    { "checkItem": "IAC_APPLY", "label": "IaC適用結果", "hint": "CloudFormation/Terraform の適用が成功したか。CFNは失敗時に成功リソースも自動削除されうるため events を確認" },
+    { "checkItem": "ALB_TARGET_HEALTH", "label": "ALB Target Health", "hint": "ターゲットが healthy か（UnHealthyHostCount）" },
+    { "checkItem": "EC2_SSM", "label": "EC2/SSM 状態", "hint": "インスタンス/SSM エージェントが正常か" },
+    { "checkItem": "HTTP_HEALTH", "label": "HTTPヘルスチェック結果", "hint": "ヘルスエンドポイントが 2xx を返すか" },
+    { "checkItem": "CW_ALARM", "label": "CloudWatch Alarm状態", "hint": "関連アラームが OK か（発報していないか）" },
+    { "checkItem": "APP_REACHABILITY", "label": "アプリケーション疎通結果", "hint": "主要機能が疎通するか" },
+    { "checkItem": "DB_CONNECTION", "label": "DB接続確認", "hint": "アプリからDBへ接続できるか" },
+    { "checkItem": "NOTE", "label": "備考", "hint": "その他の確認事項" }
+  ],
+  "healthResultValues": ["HEALTHY", "WARNING", "UNHEALTHY", "NOT_CHECKED"],
+  "completionRule": {
+    "note": "IaC適用成功とサービス正常性は別概念。COMPLETED は iac_apply_result=SUCCESS かつ service_health_confirmed=true の場合のみ。IaC成功でもヘルスチェックに UNHEALTHY があれば COMPLETED にしない（または警告付き扱い）。"
+  }
+}

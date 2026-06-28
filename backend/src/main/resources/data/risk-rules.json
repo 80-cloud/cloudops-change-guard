@@ -1,0 +1,329 @@
+[
+  {
+    "ruleCode": "RDS_DELETE_OR_REPLACE",
+    "ruleName": "RDSインスタンスの削除または置換",
+    "baseRiskLevel": "CRITICAL",
+    "detection": {
+      "summary": "正規化された変更で RDS(DBInstance/DBCluster) のアクションが delete または replace",
+      "terraformHints": ["aws_db_instance", "aws_rds_cluster", "will be destroyed", "must be replaced", "forces replacement"],
+      "cloudformationHints": ["AWS::RDS::DBInstance", "AWS::RDS::DBCluster", "Remove", "Replace"]
+    },
+    "whyDangerous": "RDSの削除・置換は、削除保護や最終スナップショットの設定が無い場合、本番データが永続的に失われる恐れがあります。置換は再作成を伴いダウンタイムが発生します。",
+    "plainMeaning": "本番データベースが作り直し・消去される変更です。設定によってはデータが戻せなくなります。",
+    "expectedImpact": "データ消失、接続先エンドポイント変更によるアプリ全断、復旧不能。Multi-AZ でも置換時は影響あり。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "削除保護や最終スナップショットが無いと、データを後から復旧できないため。" },
+      { "q": "どう対策するか？", "a": "削除保護の有無・自動/最終スナップショット・別アカウントへの複製を確認し、人間の承認とロールバック手順を必須にする。" }
+    ],
+    "recommendedAction": "削除保護とスナップショット、復旧手順を確認。本番では実行前に承認とバックアップ確認を必須にする。",
+    "approverSummary": "本番DBの削除/置換。バックアップ未確認なら承認しない。",
+    "control": { "isBlockInProd": true, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["backup", "deploy-audit"], "services": ["rds"] },
+    "sources": [
+      "https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_DeleteInstance.html",
+      "aws-zukan:common-rules/backup",
+      "aws-zukan:service/rds"
+    ]
+  },
+  {
+    "ruleCode": "S3_BUCKET_DELETE",
+    "ruleName": "S3バケットの削除",
+    "baseRiskLevel": "HIGH",
+    "envEscalation": { "production": "CRITICAL" },
+    "detection": {
+      "summary": "正規化された変更で S3 バケットのアクションが delete",
+      "terraformHints": ["aws_s3_bucket", "will be destroyed", "force_destroy"],
+      "cloudformationHints": ["AWS::S3::Bucket", "Remove"]
+    },
+    "whyDangerous": "S3バケットの削除は、保管オブジェクトの消失に直結します。特に Terraform の state 置き場の場合、バージョニング・暗号化・パブリックアクセス遮断が揃っていないと、機密を含む状態履歴ごと失われる恐れがあります。",
+    "plainMeaning": "保管しているファイルが消える変更です。state置き場だと過去の構成履歴も失われます。",
+    "expectedImpact": "オブジェクト消失、デプロイ履歴(state)の喪失、復旧不能。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "バージョニングが無いと削除後に復旧できず、stateには機密が平文で入りうるため。" },
+      { "q": "どう対策するか？", "a": "バージョニング・暗号化・パブリックアクセス遮断・別リージョン/別アカウント複製を確認してから承認する。" }
+    ],
+    "recommendedAction": "バージョニングと複製の有無を確認。本番のバケット削除は承認を必須にする。",
+    "approverSummary": "本番S3削除。state/データ消失リスク。承認前にバージョニング確認。",
+    "control": { "isBlockInProd": true, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["encryption", "iac-state", "backup"], "services": ["s3"] },
+    "sources": [
+      "https://qiita.com/80-cloud/items/0a0088ccff70d536c2d4",
+      "https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-best-practices.html",
+      "aws-zukan:service/s3"
+    ]
+  },
+  {
+    "ruleCode": "SG_OPEN_WORLD",
+    "ruleName": "セキュリティグループの 0.0.0.0/0 公開",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "SecurityGroup の ingress に 0.0.0.0/0（または ::/0）を許可する変更",
+      "terraformHints": ["aws_security_group", "cidr_blocks", "0.0.0.0/0", "ingress"],
+      "cloudformationHints": ["AWS::EC2::SecurityGroup", "CidrIp", "0.0.0.0/0"]
+    },
+    "whyDangerous": "受信を 0.0.0.0/0 に許可すると、対象ポートがインターネット全体に開放されます。許可元を IP より別のセキュリティグループに絞る原則から外れ、攻撃面が大きく広がります。",
+    "plainMeaning": "世界中の誰からでも接続できる状態になります。",
+    "expectedImpact": "総当たり・スキャンの標的化、不正アクセスの起点。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "公開範囲が全インターネットになり、攻撃面が最大化するため。" },
+      { "q": "どう対策するか？", "a": "許可元を自社IP/VPN、または別のセキュリティグループに限定する。" }
+    ],
+    "recommendedAction": "許可元を最小化（SG指定/自IP）。全開放が必要な正当理由が無ければ取り消す。",
+    "approverSummary": "全世界公開のSG変更。原則ブロック。",
+    "control": { "isBlock": true, "requiresAdditionalApproval": false, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["network"], "services": ["securitygroup"] },
+    "sources": [
+      "https://qiita.com/80-cloud/items/6e97c7e8f2076c78ea06",
+      "aws-zukan:common-rules/network",
+      "aws-zukan:service/securitygroup"
+    ]
+  },
+  {
+    "ruleCode": "SSH_22_OPEN_WORLD",
+    "ruleName": "SSHポート22の全世界公開",
+    "baseRiskLevel": "CRITICAL",
+    "detection": {
+      "summary": "ingress でポート22(またはfrom<=22<=to)を 0.0.0.0/0 に許可する変更",
+      "terraformHints": ["from_port", "22", "0.0.0.0/0", "ingress"],
+      "cloudformationHints": ["FromPort", "22", "CidrIp", "0.0.0.0/0"]
+    },
+    "whyDangerous": "SSH(22)を 0.0.0.0/0 で開放すると、インターネット全体から総当たり攻撃の標的になります。ALB 経由の構成なら SSH は不要で、運用は Session Manager(踏み台レス)に寄せられます。",
+    "plainMeaning": "サーバーのSSHが世界中に開きます。最も狙われやすい変更です。",
+    "expectedImpact": "踏み台化、不正ログイン、横展開による本番侵害。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "SSHは管理アクセスの入口で、全世界公開は総当たりの直撃を受けるため。" },
+      { "q": "どう対策するか？", "a": "送信元を自IP/VPNに限定、または Session Manager を使い22を開けない。" }
+    ],
+    "recommendedAction": "22の全開放を取り消し、Session Manager か送信元限定に切り替える。",
+    "approverSummary": "SSH全世界公開。ブロック対象。",
+    "control": { "isBlock": true, "requiresAdditionalApproval": false, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["network"], "services": ["securitygroup", "ssm"] },
+    "sources": [
+      "https://qiita.com/80-cloud/items/f8f04de4a9206f8ffa95",
+      "aws-zukan:service/securitygroup"
+    ]
+  },
+  {
+    "ruleCode": "IAM_ADMIN_ACCESS",
+    "ruleName": "IAM 管理者権限(AdministratorAccess)の付与",
+    "baseRiskLevel": "CRITICAL",
+    "detection": {
+      "summary": "AdministratorAccess 等の全権ポリシーをロール/ユーザー/グループへアタッチする変更",
+      "terraformHints": ["aws_iam_role_policy_attachment", "AdministratorAccess", "arn:aws:iam::aws:policy/AdministratorAccess"],
+      "cloudformationHints": ["AWS::IAM::ManagedPolicy", "AdministratorAccess", "ManagedPolicyArns"]
+    },
+    "whyDangerous": "管理者権限の付与は、最小権限の原則を破り、対象主体に全操作を許します。長期アクセスキーを機械に置く構成と併用されると被害が拡大します。",
+    "plainMeaning": "「何でもできる」権限を渡す変更です。誤操作も攻撃も影響が最大になります。",
+    "expectedImpact": "権限昇格、全リソースの操作・削除が可能に、職務分掌の崩壊。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "1つの主体に全権が集まり、誤りや漏洩の被害範囲が最大化するため。" },
+      { "q": "どう対策するか？", "a": "必要な操作だけの最小権限ポリシーに置き換え、付与には追加承認を必須にする。" }
+    ],
+    "recommendedAction": "最小権限ポリシーへ置換。付与が必要なら追加承認を経る。",
+    "approverSummary": "管理者権限の付与。追加承認必須・本番は要ブロック検討。",
+    "control": { "isBlockInProd": true, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["iam", "iam-templates", "deploy-audit"], "services": ["iam"] },
+    "sources": [
+      "https://qiita.com/80-cloud/items/9e5688260032e85098e8",
+      "aws-zukan:common-rules/iam"
+    ]
+  },
+  {
+    "ruleCode": "IAM_WILDCARD",
+    "ruleName": "IAM の過剰権限(Action:* / Resource:*)",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "IAMポリシーに Action:* または Resource:* を含む変更",
+      "terraformHints": ["aws_iam_policy", "\"Action\": \"*\"", "\"Resource\": \"*\"", "actions = [\"*\"]"],
+      "cloudformationHints": ["AWS::IAM::Policy", "Action", "*", "Resource", "*"]
+    },
+    "whyDangerous": "Action:* や Resource:* は、対象や操作を限定しない過剰権限です。最小権限から外れ、想定外の操作を許す余地を残します。",
+    "plainMeaning": "「すべての操作」や「すべての対象」を許す書き方で、権限が広すぎます。",
+    "expectedImpact": "想定外操作の許可、権限の横滑り、監査での指摘対象。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "限定が無いため、意図しないリソース/操作まで許可してしまうため。" },
+      { "q": "どう対策するか？", "a": "必要な Action/Resource を列挙し、ワイルドカードを具体名に置き換える。" }
+    ],
+    "recommendedAction": "ワイルドカードを具体的な Action/Resource に絞る。",
+    "approverSummary": "過剰権限(*)。追加承認で範囲を確認。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["iam", "deploy-audit"], "services": ["iam"] },
+    "sources": ["aws-zukan:common-rules/iam"]
+  },
+  {
+    "ruleCode": "CLOUDTRAIL_STOP_DELETE",
+    "ruleName": "CloudTrail の停止または削除",
+    "baseRiskLevel": "CRITICAL",
+    "detection": {
+      "summary": "CloudTrail の trail を delete、または logging を無効化する変更",
+      "terraformHints": ["aws_cloudtrail", "will be destroyed", "enable_logging = false"],
+      "cloudformationHints": ["AWS::CloudTrail::Trail", "Remove", "IsLogging"]
+    },
+    "whyDangerous": "CloudTrail の停止・削除は、アカウントの API 操作の記録を止め、監査証跡を失わせます。ガバナンス/コンプライアンスの土台が崩れます。",
+    "plainMeaning": "「誰が何をしたか」の記録が止まる/消える変更です。",
+    "expectedImpact": "操作証跡の喪失、インシデント調査・監査が不能に、コンプライアンス違反。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "監査ログが無いと、不正や障害の追跡・説明責任が果たせないため。" },
+      { "q": "どう対策するか？", "a": "全リージョン証跡を維持し、ログ用S3は改ざんされにくい保管(専用アカウント等)にする。" }
+    ],
+    "recommendedAction": "証跡の停止/削除は原則行わない。必要時も承認と保全を経る。",
+    "approverSummary": "監査証跡の停止/削除。ブロック対象・追加承認。",
+    "control": { "isBlock": true, "requiresAdditionalApproval": true, "requiresReason": true, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["logging", "iam-templates"], "services": ["cloudtrail"] },
+    "sources": ["aws-zukan:service/cloudtrail", "aws-zukan:common-rules/logging"]
+  },
+  {
+    "ruleCode": "AWSCONFIG_STOP_DELETE",
+    "ruleName": "AWS Config の停止または削除",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "Config の recorder/rule を delete、または記録を停止する変更",
+      "terraformHints": ["aws_config_configuration_recorder", "aws_config_config_rule", "will be destroyed", "is_enabled = false"],
+      "cloudformationHints": ["AWS::Config::ConfigurationRecorder", "AWS::Config::ConfigRule", "Remove"]
+    },
+    "whyDangerous": "AWS Config の停止・削除は、構成変更の継続記録と準拠評価を止めます。あるべき状態からの逸脱に気づけなくなります。",
+    "plainMeaning": "構成のチェックと履歴が止まる変更です。",
+    "expectedImpact": "構成ドリフトの検知不能、準拠評価の喪失、監査の穴。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "構成の記録/評価が止まると、逸脱や不正変更を検知できないため。" },
+      { "q": "どう対策するか？", "a": "記録対象とルールを維持し、停止が必要なら理由記録と追加承認を経る。" }
+    ],
+    "recommendedAction": "停止/削除は理由を記録し追加承認を経る。記録は原則維持。",
+    "approverSummary": "構成記録の停止/削除。追加承認・理由必須。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": true, "requiresReason": true, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["logging"], "services": ["config"] },
+    "sources": ["aws-zukan:service/config"]
+  },
+  {
+    "ruleCode": "CW_ALARM_DELETE",
+    "ruleName": "CloudWatch アラームの削除",
+    "baseRiskLevel": "MEDIUM",
+    "detection": {
+      "summary": "CloudWatch Alarm を delete する変更",
+      "terraformHints": ["aws_cloudwatch_metric_alarm", "will be destroyed"],
+      "cloudformationHints": ["AWS::CloudWatch::Alarm", "Remove"]
+    },
+    "whyDangerous": "アラームの削除は、しきい値超過の検知を失わせ、監視に穴を作ります。アラームは編集時に通知/自動復旧アクションが片方だけ消えることもあり、削除はその影響をさらに広げます。",
+    "plainMeaning": "異常を知らせる仕組みが1つ消える変更です。",
+    "expectedImpact": "障害・劣化の見逃し、対応の遅れ。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "監視が欠けると、異常が起きても気づくのが遅れるため。" },
+      { "q": "どう対策するか？", "a": "削除理由(恒久/一時)を記録し、代替監視や復旧パスを残す。" }
+    ],
+    "recommendedAction": "削除理由を必須化し、代替監視の有無を確認する。",
+    "approverSummary": "監視アラーム削除。理由入力を必須に。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": false, "requiresReason": true, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["monitoring"], "services": ["cloudwatch"] },
+    "sources": ["https://qiita.com/80-cloud/items/8fc94b79119fa3c8db38", "aws-zukan:service/cloudwatch"]
+  },
+  {
+    "ruleCode": "ALB_DELETE",
+    "ruleName": "ALB(ロードバランサ)の削除",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "Application Load Balancer を delete する変更",
+      "terraformHints": ["aws_lb", "load_balancer_type = \"application\"", "will be destroyed"],
+      "cloudformationHints": ["AWS::ElasticLoadBalancingV2::LoadBalancer", "Remove"]
+    },
+    "whyDangerous": "ALB の削除は、その配下に流れていた本番トラフィックを一斉に断ち切ります。ALB は最低2AZ・各AZのpublicサブネット・ターゲットグループが前提で、削除は公開経路そのものの喪失です。",
+    "plainMeaning": "アプリの入口が消える変更で、サービスが止まります。",
+    "expectedImpact": "サービス全断、公開エンドポイントの喪失。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "ALBは公開トラフィックの入口で、削除は即時の全断につながるため。" },
+      { "q": "どう対策するか？", "a": "切替先や再作成手順を用意し、メンテナンス枠と承認を経る。" }
+    ],
+    "recommendedAction": "切替先・再作成手順を確認し、承認とメンテナンス枠で実施する。",
+    "approverSummary": "ALB削除＝サービス停止リスク。追加承認。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["network", "monitoring"], "services": ["alb"] },
+    "sources": ["https://qiita.com/80-cloud/items/f094039371ebe1bea1a5", "aws-zukan:service/alb"]
+  },
+  {
+    "ruleCode": "TARGET_GROUP_DELETE",
+    "ruleName": "ターゲットグループの削除",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "ALB の Target Group を delete する変更",
+      "terraformHints": ["aws_lb_target_group", "will be destroyed"],
+      "cloudformationHints": ["AWS::ElasticLoadBalancingV2::TargetGroup", "Remove"]
+    },
+    "whyDangerous": "ターゲットグループの削除は、ALB からアプリへの転送先を失わせます。TG は VPC やターゲット種別が噛み合っていないと転送先に現れない繊細な部品で、削除はルーティングの喪失です。",
+    "plainMeaning": "アプリへの振り分け先が消える変更で、リクエストが届かなくなります。",
+    "expectedImpact": "ルーティング喪失、502/503、サービス停止。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "ALBの転送先が無くなり、リクエストが処理されなくなるため。" },
+      { "q": "どう対策するか？", "a": "リスナーの参照を確認し、代替TGの用意と承認を経る。" }
+    ],
+    "recommendedAction": "リスナー参照と代替TGを確認してから承認・実施する。",
+    "approverSummary": "TG削除＝ルーティング喪失。追加承認。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["network"], "services": ["alb"] },
+    "sources": ["https://qiita.com/80-cloud/items/893794cdcdfa0e7ef258", "aws-zukan:service/alb"]
+  },
+  {
+    "ruleCode": "PROD_EC2_REPLACE",
+    "ruleName": "本番EC2インスタンスの置換",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "environment=production かつ EC2 インスタンスが replace(再作成)される変更",
+      "terraformHints": ["aws_instance", "must be replaced", "forces replacement"],
+      "cloudformationHints": ["AWS::EC2::Instance", "Replace"]
+    },
+    "whyDangerous": "本番EC2の置換は再作成を伴い、ダウンタイムやデータ/IP変更が起こりえます。停止しても EBS・パブリックIPv4 等は課金が続く点も併せて運用判断が要ります。",
+    "plainMeaning": "本番サーバーが作り直される変更で、停止やアドレス変更が起こりえます。",
+    "expectedImpact": "ダウンタイム、ローカルデータ消失、エンドポイント変更。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "再作成中はサービスが止まり、インスタンス上の状態が失われるため。" },
+      { "q": "どう対策するか？", "a": "メンテナンス枠を登録し、データ退避とロールバック手順を用意する。" }
+    ],
+    "recommendedAction": "メンテナンス時間を登録し、退避・ロールバック手順を確認して実施する。",
+    "approverSummary": "本番EC2置換。メンテ枠必須・追加承認。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": true },
+    "awsZukanRefs": { "commonRules": ["deploy-audit"], "services": ["ec2"] },
+    "sources": ["https://qiita.com/80-cloud/items/9e5688260032e85098e8", "aws-zukan:service/ec2"]
+  },
+  {
+    "ruleCode": "PROD_ECS_LARGE_CHANGE",
+    "ruleName": "本番ECSサービスの大規模変更",
+    "baseRiskLevel": "HIGH",
+    "detection": {
+      "summary": "environment=production かつ ECS service の desiredCount/taskDefinition が大幅に変わる変更",
+      "terraformHints": ["aws_ecs_service", "desired_count", "task_definition"],
+      "cloudformationHints": ["AWS::ECS::Service", "DesiredCount", "TaskDefinition"]
+    },
+    "whyDangerous": "本番ECSの大規模変更は、起動所要時間とヘルスチェック猶予(healthCheckGracePeriodSeconds)が噛み合わないと、起動完了前に unhealthy 判定→停止→再起動のループに陥る恐れがあります。",
+    "plainMeaning": "本番コンテナの台数や定義を大きく変える変更で、起動ループの恐れがあります。",
+    "expectedImpact": "デプロイ失敗、再起動ループ、可用性低下。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "猶予時間が短いと、起動中のタスクが異常と誤判定され落とされるため。" },
+      { "q": "どう対策するか？", "a": "healthCheckGracePeriodSeconds を起動所要時間に合わせ、段階的にロールアウトする。" }
+    ],
+    "recommendedAction": "猶予時間と段階ロールアウトを確認し、承認を経て実施する。",
+    "approverSummary": "本番ECS大規模変更。追加承認・猶予時間確認。",
+    "control": { "isBlock": false, "requiresAdditionalApproval": true, "requiresReason": false, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["iam-templates"], "services": ["ecs"] },
+    "sources": ["https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_CreateService.html", "aws-zukan:service/ecs"]
+  },
+  {
+    "ruleCode": "TF_DESTROY_BULK",
+    "ruleName": "Terraform destroy 相当の一括削除",
+    "baseRiskLevel": "CRITICAL",
+    "detection": {
+      "summary": "plan に複数リソースの destroy が含まれる、または terraform destroy 相当の操作",
+      "terraformHints": ["will be destroyed", "Plan:", "to destroy", "terraform destroy"],
+      "cloudformationHints": ["delete stack", "Remove"]
+    },
+    "whyDangerous": "複数リソースの一括削除は、意図しない破壊が混ざりやすく、削除保護(prevent_destroy/deletion protection)が無ければワンコマンドで広範囲が消えます。plan 差分の削除/置換は必ず目視確認が要ります。",
+    "plainMeaning": "まとめて多くの資源を消す変更です。意図しない削除が紛れやすい操作です。",
+    "expectedImpact": "広範囲のリソース消失、本番全断、復旧困難。",
+    "followUps": [
+      { "q": "なぜ危険か？", "a": "一括destroyは影響範囲が広く、巻き添え削除に気づきにくいため。" },
+      { "q": "どう対策するか？", "a": "plan差分の削除/置換を目視し、重要リソースに削除保護を付け、承認を必須にする。" }
+    ],
+    "recommendedAction": "plan差分を目視確認し、削除保護と承認を経る。本番は原則ブロック。",
+    "approverSummary": "一括destroy。本番ブロック・差分目視必須。",
+    "control": { "isBlockInProd": true, "requiresAdditionalApproval": true, "requiresReason": true, "requiresMaintenanceWindow": false },
+    "awsZukanRefs": { "commonRules": ["deploy-audit", "iac-state"], "services": [] },
+    "sources": ["aws-zukan:common-rules/deploy-audit"]
+  }
+]

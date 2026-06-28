@@ -1,0 +1,50 @@
+# ========================================================================
+# ブラックボックス化規律：母要件定義書はリポジトリ外で管理する
+# ========================================================================
+# 思想・経営哲学レベルの内容を含むため、公開リポでの追跡から除外する。
+# .gitignore のこの行は絶対に削除しないこと。
+母要件定義書.md
+母要件定義書*.md
+
+# 追加禁止語リスト（語そのものを公開リポに残さないため除外）
+# 仕組みは scripts/blackbox-check.sh に残し、語は下記ローカルファイルで管理する。
+scripts/blackbox-words.local.txt
+
+# 旧版バックアップ等
+*.bak
+*.bak.*
+.tmp-*/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+!.vscode/extensions.json
+
+# 環境ファイル
+.env
+.env.*
+!.env.example
+
+# ログ・ビルド成果物
+*.log
+node_modules/
+build/
+bin/
+dist/
+target/
+.gradle/
+out/
+
+# 依存
+package-lock.json
+yarn.lock
+
+# 作業メモ・非公開語リストは公開しない
+*.local.md
+*.local.txt
+
+# 置換辞書（語そのものを含む）dev 専用ツール。cp -R で運ばれるが公開はしない
+scripts/blackbox-replace.py

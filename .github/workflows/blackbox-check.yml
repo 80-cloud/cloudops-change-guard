@@ -1,0 +1,39 @@
+name: Blackbox Check
+
+# 公開リポへフレームワーク固有名詞が漏れた状態でマージされないように、
+# PR と main への push 時に必ず検証する。
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  blackbox:
+    name: フレームワーク固有名詞の混入検査
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 用語スキャン（Secret から語リストを復元してフル検査）
+        env:
+          DOCS_LINT_WORDS: ${{ secrets.DOCS_LINT_WORDS }}
+        run: |
+          if [ -n "${DOCS_LINT_WORDS}" ]; then
+            printf '%s\n' "${DOCS_LINT_WORDS}" > scripts/blackbox-words.local.txt
+            echo "語リスト復元: $(grep -vcE '^#|^$' scripts/blackbox-words.local.txt) 語"
+          else
+            echo "⚠ Secret DOCS_LINT_WORDS 未設定 — 語スキャンは残ファイル名ガードのみ"
+          fi
+          chmod +x scripts/blackbox-check.sh
+          bash scripts/blackbox-check.sh
+
+      - name: 残ファイル名チェック（母要件定義書がコミットされていないか）
+        run: |
+          if git -c core.quotepath=false ls-files | grep -E '母要件定義書' ; then
+            echo "✘ 母要件定義書がリポに含まれています。.gitignore を確認してください。"
+            exit 1
+          fi
+          echo "✓ 母要件定義書は追跡されていません"

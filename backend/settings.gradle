@@ -1,0 +1,7 @@
+// JDK 25 toolchain をローカル Java バージョンに依存せず自動プロビジョンするための resolver
+// （ローカルが Java 21 でも Gradle が Java 25 を取得してコンパイルする。build.gradle の toolchain 宣言と対）
+plugins {
+	id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'cloudops-change-guard'
