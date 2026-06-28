@@ -2,6 +2,7 @@ package com.cloudopsguard.domain.risk;
 
 import com.cloudopsguard.domain.changerequest.ChangeRequest;
 import com.cloudopsguard.domain.changerequest.ChangeRequestRepository;
+import com.cloudopsguard.domain.changerequest.dto.CreateChangeRequest;
 import com.cloudopsguard.domain.policy.PolicyEvaluationResult;
 import com.cloudopsguard.domain.policy.PolicyEngine;
 import com.cloudopsguard.domain.policy.PolicyRuleRepository;
@@ -93,5 +94,26 @@ public class RiskAssessmentService {
         changeRequestRepository.save(cr);
 
         return new AssessmentOutcome(risk, policy, blocked);
+    }
+
+    /** 非永続プレビュー（作成画面用・API設計.md §2）。判定のみで永続化しない。 */
+    public AssessmentOutcome preview(CreateChangeRequest req) {
+        ChangeRequest cr = new ChangeRequest();
+        cr.setTargetEnvironment(req.targetEnvironment());
+        cr.setIacType(req.iacType());
+        cr.setTargetAwsService(req.targetAwsService());
+        cr.setTargetResourceName(req.targetResourceName());
+        cr.setDiffText(req.diffText());
+        RiskAssessmentResult risk = riskEngine.assess(cr);
+        PolicyEvaluationResult policy = policyEngine.evaluate(cr, risk);
+        return new AssessmentOutcome(risk, policy, risk.blocked() || policy.blocked());
+    }
+
+    /** 最新判定が追加承認（リスク/ポリシー由来）を要求するか（定足数 +1 判定に使う）。未判定は false。 */
+    @Transactional(readOnly = true)
+    public boolean requiresAdditionalApproval(Long changeRequestId) {
+        return riskAssessmentRepository.findTopByChangeRequestIdOrderByAssessedAtDesc(changeRequestId)
+                .map(RiskAssessment::isRequiresAdditionalApproval)
+                .orElse(false);
     }
 }
