@@ -134,6 +134,24 @@ public class ChangeRequestStateMachine {
      */
     public void transition(ChangeRequest cr, TransitionAction action, AppUserPrincipal actor,
                            TransitionContext ctx) {
+        Rule rule = ruleFor(cr, action, actor, ctx);
+        cr.setStatus(rule.to());
+    }
+
+    /**
+     * 遷移の妥当性（許可表・ロール・ガード）だけを検証し、<b>状態は変えない</b>。
+     * 条件付き遷移（承認段数の定足数未達など、票は記録するが APPROVED にはしない場面）で使う。
+     *
+     * @throws IllegalStateTransitionException / ForbiddenException / ValidationException transition と同じ
+     */
+    public void validate(ChangeRequest cr, TransitionAction action, AppUserPrincipal actor,
+                         TransitionContext ctx) {
+        ruleFor(cr, action, actor, ctx);
+    }
+
+    /** 許可表からルールを引き、ロール・ガードを検証して返す（状態は変えない）。 */
+    private Rule ruleFor(ChangeRequest cr, TransitionAction action, AppUserPrincipal actor,
+                         TransitionContext ctx) {
         Map<TransitionAction, Rule> rules = table.getOrDefault(cr.getStatus(), Map.of());
         Rule rule = rules.get(action);
         if (rule == null) {
@@ -143,7 +161,7 @@ public class ChangeRequestStateMachine {
             throw new ForbiddenException("この状態でこの操作を行う権限がありません");
         }
         rule.guard().check(cr, actor, ctx);
-        cr.setStatus(rule.to());
+        return rule;
     }
 
     /** 現在状態・ロール（＋所有）から、その利用者が実行可能なアクションの wire 名一覧を算出する。 */
