@@ -2,20 +2,31 @@ package com.cloudopsguard.domain.changerequest;
 
 import com.cloudopsguard.common.exception.IllegalStateTransitionException;
 import com.cloudopsguard.common.exception.NotFoundException;
+import com.cloudopsguard.common.exception.PolicyBlockedException;
+import com.cloudopsguard.common.exception.ValidationException;
 import com.cloudopsguard.domain.approval.Approval;
+import com.cloudopsguard.domain.approval.ApprovalFlowMatrix;
 import com.cloudopsguard.domain.approval.ApprovalRepository;
+import com.cloudopsguard.domain.approval.ApprovalRequirement;
 import com.cloudopsguard.domain.audit.AuditService;
 import com.cloudopsguard.domain.changerequest.ChangeRequestStateMachine.TransitionContext;
 import com.cloudopsguard.domain.changerequest.dto.CreateChangeRequest;
 import com.cloudopsguard.domain.changerequest.dto.TransitionRequest;
 import com.cloudopsguard.domain.changerequest.dto.UpdateChangeRequest;
 import com.cloudopsguard.domain.common.*;
+import com.cloudopsguard.domain.policy.PolicyEffect;
+import com.cloudopsguard.domain.policy.PolicyOutcome;
+import com.cloudopsguard.domain.risk.AssessmentOutcome;
+import com.cloudopsguard.domain.risk.BlockReason;
+import com.cloudopsguard.domain.risk.RiskAssessmentService;
+import com.cloudopsguard.domain.risk.RiskFinding;
 import com.cloudopsguard.security.AppUserPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,15 +43,21 @@ public class ChangeRequestService {
     private final ChangeRequestStateMachine stateMachine;
     private final ApprovalRepository approvalRepository;
     private final AuditService auditService;
+    private final RiskAssessmentService riskAssessmentService;
+    private final ApprovalFlowMatrix approvalFlowMatrix;
 
     public ChangeRequestService(ChangeRequestRepository repository,
                                 ChangeRequestStateMachine stateMachine,
                                 ApprovalRepository approvalRepository,
-                                AuditService auditService) {
+                                AuditService auditService,
+                                RiskAssessmentService riskAssessmentService,
+                                ApprovalFlowMatrix approvalFlowMatrix) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.approvalRepository = approvalRepository;
         this.auditService = auditService;
+        this.riskAssessmentService = riskAssessmentService;
+        this.approvalFlowMatrix = approvalFlowMatrix;
     }
 
     // ---- 作成・編集 ----
@@ -142,12 +159,26 @@ public class ChangeRequestService {
             cr.setScheduledAt(ctx.scheduledAt());
         }
 
+        // APPROVE は承認段数（環境×リスク）に応じた条件付き遷移のため専用経路で処理する。
+        if (action == TransitionAction.APPROVE) {
+            return handleApprove(cr, actor, ctx, before, comment);
+        }
+
         stateMachine.transition(cr, action, actor, ctx);
 
-        // 承認系は approvals に記録（UNIQUE で二重承認を防止）。
-        if (action == TransitionAction.APPROVE
-                || action == TransitionAction.REJECT
-                || action == TransitionAction.RETURN_) {
+        // SUBMIT 時：リスク判定＋ポリシー評価を実行・永続化し、BLOCK なら遷移を拒否（受入 A-4/A-5）。
+        // 例外は本メソッドの @Transactional をロールバックさせ、状態を DRAFT/RETURNED のまま戻す。
+        if (action == TransitionAction.SUBMIT) {
+            AssessmentOutcome outcome = riskAssessmentService.assess(cr);
+            if (outcome.blocked()) {
+                throw new PolicyBlockedException(
+                        "ポリシーにより提出できません（危険な変更が検出されました）",
+                        buildBlockDetails(outcome));
+            }
+        }
+
+        // 却下・差し戻しは approvals に記録（UNIQUE で二重記録を防止）。
+        if (action == TransitionAction.REJECT || action == TransitionAction.RETURN_) {
             recordApproval(cr, actor, action, comment);
         }
 
@@ -157,7 +188,68 @@ public class ChangeRequestService {
         return saved;
     }
 
+    /**
+     * APPROVE：環境×リスクの承認要件（approval-flow.json）に基づく条件付き遷移。
+     *
+     * <p>承認前提（実施予定日時・ロールバック手順）を確認 → ロール/自己承認/遷移の妥当性を検証（状態は変えない）
+     * → このレビュー者の票を記録 → 必要承認数（distinct）に達したら APPROVED へ、未達なら UNDER_REVIEW を維持。
+     * 状態変更は必ず状態機械経由（A-9）。
+     */
+    private ChangeRequest handleApprove(ChangeRequest cr, AppUserPrincipal actor,
+                                        TransitionContext ctx, ChangeRequestStatus before, String comment) {
+        // 先に認可（ロール REVIEWER・自己承認禁止・遷移の妥当性）を検証する（状態は変えない）。
+        // 業務要件（前提充足）より認可を優先し、非レビュー者に要件を露出させない。
+        stateMachine.validate(cr, TransitionAction.APPROVE, actor, ctx);
+
+        // 次に CR レベルの承認前提（状態遷移設計.md §4）。
+        ApprovalRequirement req = approvalFlowMatrix.requirementFor(
+                cr.getTargetEnvironment(), riskLevelOf(cr));
+        if (req.requireScheduledAt() && cr.getScheduledAt() == null) {
+            throw new ValidationException("この変更の承認には実施予定日時が必要です");
+        }
+        if (req.requireRollbackProcedure() && isBlank(cr.getRollbackProcedure())) {
+            throw new ValidationException("この変更の承認にはロールバック手順が必要です");
+        }
+
+        // このレビュー者の票を記録（UNIQUE が同一レビュー者の二重承認を防止＝distinct を担保）。
+        recordApproval(cr, actor, TransitionAction.APPROVE, comment);
+
+        // 異なるレビュー者の承認数が要件に達したら APPROVED へ。
+        long approvedCount = approvalRepository.countByChangeRequestIdAndDecision(
+                cr.getId(), Decision.APPROVED);
+        if (approvedCount >= req.requiredApprovals()) {
+            stateMachine.transition(cr, TransitionAction.APPROVE, actor, ctx);
+        }
+
+        ChangeRequest saved = repository.save(cr);
+        auditService.record(actor, saved.getId(), AuditAction.APPROVE,
+                before, saved.getStatus(), comment, null);
+        return saved;
+    }
+
+    private RiskLevel riskLevelOf(ChangeRequest cr) {
+        return cr.getRiskLevel() != null ? cr.getRiskLevel() : RiskLevel.LOW;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     // ---- 内部ヘルパ ----
+
+    /** ブロック理由（危険なリスク finding ＋ BLOCK ポリシー）を API レスポンス用の details に整形する。 */
+    private List<Object> buildBlockDetails(AssessmentOutcome outcome) {
+        List<Object> details = new ArrayList<>();
+        for (RiskFinding f : outcome.risk().blockingFindings()) {
+            details.add(new BlockReason("RISK", f.ruleCode(), f.whyDangerous(), f.recommendedAction()));
+        }
+        for (PolicyOutcome o : outcome.policy().outcomes()) {
+            if (o.effect() == PolicyEffect.BLOCK) {
+                details.add(new BlockReason("POLICY", o.policyCode(), o.message(), null));
+            }
+        }
+        return details;
+    }
 
     private void recordApproval(ChangeRequest cr, AppUserPrincipal actor,
                                 TransitionAction action, String comment) {

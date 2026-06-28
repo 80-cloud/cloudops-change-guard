@@ -11,6 +11,9 @@ import com.cloudopsguard.domain.common.Environment;
 import com.cloudopsguard.domain.common.IacType;
 import com.cloudopsguard.domain.common.Role;
 import com.cloudopsguard.domain.policy.PolicyRuleRepository;
+import com.cloudopsguard.domain.policy.PolicyViolationRepository;
+import com.cloudopsguard.domain.risk.RiskAssessmentFindingRepository;
+import com.cloudopsguard.domain.risk.RiskAssessmentRepository;
 import com.cloudopsguard.domain.user.User;
 import com.cloudopsguard.domain.user.UserRepository;
 import com.cloudopsguard.security.AppUserPrincipal;
@@ -64,6 +67,9 @@ public abstract class AbstractIntegrationTest {
     @Autowired protected CommentRepository commentRepository;
     @Autowired protected RefreshTokenRepository refreshTokenRepository;
     @Autowired protected PolicyRuleRepository policyRuleRepository;
+    @Autowired protected PolicyViolationRepository policyViolationRepository;
+    @Autowired protected RiskAssessmentRepository riskAssessmentRepository;
+    @Autowired protected RiskAssessmentFindingRepository riskAssessmentFindingRepository;
     @Autowired protected PasswordEncoder passwordEncoder;
 
     @AfterEach
@@ -72,6 +78,9 @@ public abstract class AbstractIntegrationTest {
         auditLogRepository.deleteAll();
         approvalRepository.deleteAll();
         commentRepository.deleteAll();
+        riskAssessmentFindingRepository.deleteAll();   // risk_assessments の子
+        riskAssessmentRepository.deleteAll();           // change_requests の子
+        policyViolationRepository.deleteAll();           // change_requests / policy_rules の子
         changeRequestRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         policyRuleRepository.deleteAll();
