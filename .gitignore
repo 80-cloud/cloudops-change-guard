@@ -6,6 +6,10 @@
 母要件定義書.md
 母要件定義書*.md
 
+# 内部運用ファイル（手元管理・リポには含めない）。cp -R で各アプリへ運ぶ運用と整合。
+CLAUDE.md
+NEW_REPO_CHECKLIST.md
+
 # 追加禁止語リスト（語そのものを公開リポに残さないため除外）
 # 仕組みは scripts/blackbox-check.sh に残し、語は下記ローカルファイルで管理する。
 scripts/blackbox-words.local.txt
