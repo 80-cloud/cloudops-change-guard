@@ -15,6 +15,8 @@ users (1) ──< change_requests (申請者 requester_id)
                   ├──< executions         >── users (operator_id)
                   ├──< comments           >── users (author_id)
                   └──< audit_logs         >── users (actor_id)
+
+users (1) ──< refresh_tokens （ログインセッション・認証）
 ```
 
 凡例：`──<` は 1対多。`>──` は多対1。
@@ -36,6 +38,20 @@ users (1) ──< change_requests (申請者 requester_id)
 | updated_at | TIMESTAMPTZ | NOT NULL | |
 
 > **Role の扱い**：MVP は単一ロール/ユーザーを `users.role`（enum: REQUESTER/REVIEWER/OPERATOR/ADMIN）で表現する。Role を独立エンティティにしたい場合は `roles(id, code, name)` ＋ `user_roles(user_id, role_id)` 中間表で M:N 拡張できる（将来・今回は対象外）。本書では enum 方式を採用。
+
+### 2-1b. refresh_tokens（リフレッシュトークン）
+| カラム | 型 | 制約 | 説明 |
+|---|---|---|---|
+| id | BIGSERIAL | PK | |
+| user_id | BIGINT | FK→users NOT NULL | 所有ユーザー |
+| token_hash | VARCHAR(64) | UNIQUE NOT NULL | 生トークンは保存せず SHA-256 hex(64) を保持 |
+| expires_at | TIMESTAMPTZ | NOT NULL | 失効期限 |
+| revoked_at | TIMESTAMPTZ | NULL | 失効時刻。NULL=有効 |
+| created_at | TIMESTAMPTZ | NOT NULL | |
+
+インデックス：`(user_id)`。
+
+> 短命 access トークン（JWT）＋ refresh の DB ローテーションで認証を保つ。refresh のたびに使い捨て発行し直し、失効済みトークンの再提示を検知したら当該ユーザーの全トークンを失効させる（盗用対策）。
 
 ### 2-2. change_requests（変更申請・中核）
 | カラム | 型 | 制約 | 説明 |
@@ -138,7 +154,7 @@ users (1) ──< change_requests (申請者 requester_id)
 | id | BIGSERIAL | PK | |
 | change_request_id | BIGINT | FK NOT NULL | |
 | check_item | VARCHAR(60) | NOT NULL | IAC_APPLY / ALB_TARGET_HEALTH / EC2_SSM / HTTP_HEALTH / CW_ALARM / APP_REACHABILITY / DB_CONNECTION / NOTE |
-| result | VARCHAR(10) | NOT NULL | OK / WARN / ERROR / UNKNOWN（正常/警告/異常/未確認） |
+| result | VARCHAR(12) | NOT NULL | HEALTHY / WARNING / UNHEALTHY / NOT_CHECKED（正常/警告/異常/未確認） |
 | note | TEXT | NULL | |
 | recorded_by | BIGINT | FK→users NOT NULL | |
 | recorded_at | TIMESTAMPTZ | NOT NULL | |
@@ -173,13 +189,14 @@ users (1) ──< change_requests (申請者 requester_id)
 | id | BIGSERIAL | PK | |
 | change_request_id | BIGINT | FK NULL | 対象変更申請（ポリシー定義操作等は NULL 可） |
 | actor_id | BIGINT | FK→users NOT NULL | 操作者 |
-| action_type | VARCHAR(30) | NOT NULL | 下記12種 |
+| action_type | VARCHAR(30) | NOT NULL | 下記の種別 |
 | before_status | VARCHAR(20) | NULL | 変更前状態 |
 | after_status | VARCHAR(20) | NULL | 変更後状態 |
 | comment | TEXT | NULL | |
+| summary | TEXT | NULL | 変更内容の要約 |
 | created_at | TIMESTAMPTZ | NOT NULL | |
 
-`action_type`：CREATE / EDIT / SUBMIT / APPROVE / REJECT / RETURN / EXECUTION_START / EXECUTION_COMPLETE / EXECUTION_FAIL / ROLLBACK / POLICY_VIOLATION / COMMENT。
+`action_type`：CREATE / EDIT / SUBMIT / REVIEW_START / APPROVE / REJECT / RETURN / SCHEDULE / CANCEL / EXECUTION_START / EXECUTION_COMPLETE / EXECUTION_FAIL / ROLLBACK / POLICY_VIOLATION / COMMENT。
 
 > **改ざん防止**：監査ログは Service 層で INSERT のみ許可。UPDATE / DELETE を行うリポジトリメソッドを設けない。アプリのロールに監査ログ編集権限を一切与えない（IPアドレスは今回保持しない）。
 

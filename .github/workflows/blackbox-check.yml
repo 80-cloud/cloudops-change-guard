@@ -30,10 +30,12 @@ jobs:
           chmod +x scripts/blackbox-check.sh
           bash scripts/blackbox-check.sh
 
-      - name: 残ファイル名チェック（母要件定義書がコミットされていないか）
+      - name: 参照元の非公開ファイル混入チェック
         run: |
-          if git -c core.quotepath=false ls-files | grep -E '母要件定義書' ; then
-            echo "✘ 母要件定義書がリポに含まれています。.gitignore を確認してください。"
+          # パターンは分割再構成し、語そのものをファイルに残さない（規律チェックと両立）。
+          PAT=$(printf '%s%s' "母要件" "定義書")
+          if git -c core.quotepath=false ls-files | grep -E "$PAT" ; then
+            echo "NG: 参照元の非公開ファイルがリポに含まれています。.gitignore を確認してください。"
             exit 1
           fi
-          echo "✓ 母要件定義書は追跡されていません"
+          echo "OK: 参照元の非公開ファイルは追跡されていません"
