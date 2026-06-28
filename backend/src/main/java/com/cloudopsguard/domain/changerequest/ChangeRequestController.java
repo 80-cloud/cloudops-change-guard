@@ -56,12 +56,11 @@ public class ChangeRequestController {
         return ResponseEntity.status(201).body(detail(cr, actor));
     }
 
-    /** 詳細。 */
+    /** 詳細（基本情報＋実施前チェック／実施後ヘルス／最新 execution を集約）。 */
     @GetMapping("/{id}")
-    public ApiResponse<ChangeRequestResponse> get(
+    public ApiResponse<ChangeRequestDetailResponse> get(
             @AuthenticationPrincipal AppUserPrincipal actor, @PathVariable Long id) {
-        ChangeRequest cr = service.getViewable(actor, id);
-        return detail(cr, actor);
+        return ApiResponse.of(service.getDetail(actor, id));
     }
 
     /** 編集（DRAFT/RETURNED の所有者のみ）。 */
