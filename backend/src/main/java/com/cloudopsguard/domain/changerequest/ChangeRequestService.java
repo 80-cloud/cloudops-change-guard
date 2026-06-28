@@ -14,6 +14,9 @@ import com.cloudopsguard.domain.changerequest.dto.CreateChangeRequest;
 import com.cloudopsguard.domain.changerequest.dto.TransitionRequest;
 import com.cloudopsguard.domain.changerequest.dto.UpdateChangeRequest;
 import com.cloudopsguard.domain.common.*;
+import com.cloudopsguard.domain.execution.ExecutionService;
+import com.cloudopsguard.domain.changerequest.dto.ChangeRequestDetailResponse;
+import com.cloudopsguard.domain.changerequest.dto.ChangeRequestResponse;
 import com.cloudopsguard.domain.policy.PolicyEffect;
 import com.cloudopsguard.domain.policy.PolicyOutcome;
 import com.cloudopsguard.domain.risk.AssessmentOutcome;
@@ -33,7 +36,7 @@ import java.util.List;
  * 変更申請のユースケース。Controller は業務ロジックを持たずここへ委譲する（M-3）。
  *
  * <p>遷移は必ず {@link ChangeRequestStateMachine#transition} 経由（status を直接 set しない・A-9）。
- * 遷移 + 付随レコード(承認) + 監査ログを<b>同一トランザクション</b>で書く（B5・原子性）。
+ * 遷移 + 付随レコード(承認/実施) + 監査ログを<b>同一トランザクション</b>で書く（B5・原子性）。
  * 認可はロール（@PreAuthorize）＋所有者検証（本サービス）の二重で強制し、IDOR は 404 で秘匿する。
  */
 @Service
@@ -45,19 +48,22 @@ public class ChangeRequestService {
     private final AuditService auditService;
     private final RiskAssessmentService riskAssessmentService;
     private final ApprovalFlowMatrix approvalFlowMatrix;
+    private final ExecutionService executionService;
 
     public ChangeRequestService(ChangeRequestRepository repository,
                                 ChangeRequestStateMachine stateMachine,
                                 ApprovalRepository approvalRepository,
                                 AuditService auditService,
                                 RiskAssessmentService riskAssessmentService,
-                                ApprovalFlowMatrix approvalFlowMatrix) {
+                                ApprovalFlowMatrix approvalFlowMatrix,
+                                ExecutionService executionService) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.approvalRepository = approvalRepository;
         this.auditService = auditService;
         this.riskAssessmentService = riskAssessmentService;
         this.approvalFlowMatrix = approvalFlowMatrix;
+        this.executionService = executionService;
     }
 
     // ---- 作成・編集 ----
@@ -128,6 +134,17 @@ public class ChangeRequestService {
         return cr;
     }
 
+    /** 集約詳細（基本情報＋pre-check／health／最新 execution）。閲覧権限は getViewable に従う（API設計.md §2）。 */
+    @Transactional(readOnly = true)
+    public ChangeRequestDetailResponse getDetail(AppUserPrincipal actor, Long id) {
+        ChangeRequest cr = getViewable(actor, id);
+        ChangeRequestResponse base = ChangeRequestResponse.from(cr, allowedActions(cr, actor));
+        return new ChangeRequestDetailResponse(base,
+                executionService.listPreChecks(id),
+                executionService.listHealthChecks(id),
+                executionService.latestExecution(id));
+    }
+
     /** 一覧（フィルタ＋ページング）。REQUESTER は requesterId を自分に強制上書き（P-2）。 */
     @Transactional(readOnly = true)
     public Page<ChangeRequest> list(AppUserPrincipal actor, Environment environment,
@@ -159,9 +176,14 @@ public class ChangeRequestService {
             cr.setScheduledAt(ctx.scheduledAt());
         }
 
-        // APPROVE は承認段数（環境×リスク）に応じた条件付き遷移のため専用経路で処理する。
-        if (action == TransitionAction.APPROVE) {
-            return handleApprove(cr, actor, ctx, before, comment);
+        // 業務ガード・付随記録を伴う遷移は専用経路で処理する。
+        switch (action) {
+            case APPROVE -> { return handleApprove(cr, actor, ctx, before, comment); }
+            case START -> { return handleStart(cr, actor, ctx, before, comment); }
+            case COMPLETE -> { return handleComplete(cr, actor, ctx, before, comment); }
+            case FAIL -> { return handleFail(cr, actor, ctx, before, comment); }
+            case ROLLBACK -> { return handleRollback(cr, actor, ctx, before, comment); }
+            default -> { /* 以降の汎用経路で処理 */ }
         }
 
         stateMachine.transition(cr, action, actor, ctx);
@@ -175,6 +197,12 @@ public class ChangeRequestService {
                         "ポリシーにより提出できません（危険な変更が検出されました）",
                         buildBlockDetails(outcome));
             }
+        }
+
+        // SCHEDULE 時：実施前チェックを CR ごとに生成（冪等・is_required は env×risk マトリクス）。
+        // 同一 TX 内で実行し、START ゲートが参照する。
+        if (action == TransitionAction.SCHEDULE) {
+            executionService.instantiatePreChecks(cr);
         }
 
         // 却下・差し戻しは approvals に記録（UNIQUE で二重記録を防止）。
@@ -223,6 +251,82 @@ public class ChangeRequestService {
 
         ChangeRequest saved = repository.save(cr);
         auditService.record(actor, saved.getId(), AuditAction.APPROVE,
+                before, saved.getStatus(), comment, null);
+        return saved;
+    }
+
+    /**
+     * START（SCHEDULED→IN_PROGRESS）：必須 pre-check 完了ゲート（A-7）＋実施記録の開始。
+     *
+     * <p>認可・遷移の妥当性を先に検証（状態は変えない）→ env×risk が対象なら必須 pre-check 全完了を確認
+     * （未完了は 409）→ 遷移 → execution を1行開始記録。すべて同一 TX（B5）。
+     */
+    private ChangeRequest handleStart(ChangeRequest cr, AppUserPrincipal actor,
+                                      TransitionContext ctx, ChangeRequestStatus before, String comment) {
+        stateMachine.validate(cr, TransitionAction.START, actor, ctx);
+
+        if (!executionService.requiredPreChecksComplete(cr)) {
+            throw new IllegalStateTransitionException(
+                    "必須の実施前チェックが未完了です",
+                    "本変更の開始には必須の実施前チェックをすべて完了する必要があります",
+                    cr.getStatus().name(),
+                    stateMachine.allowedActions(cr, actor));
+        }
+
+        stateMachine.transition(cr, TransitionAction.START, actor, ctx);
+        executionService.startExecution(cr, actor);
+
+        ChangeRequest saved = repository.save(cr);
+        auditService.record(actor, saved.getId(), AuditAction.EXECUTION_START,
+                before, saved.getStatus(), comment, null);
+        return saved;
+    }
+
+    /**
+     * COMPLETE（IN_PROGRESS→COMPLETED）：iac_apply_result=SUCCESS かつ service_health_confirmed の
+     * 導出が true の時のみ（A-10）。満たさなければ 409。確定時に execution の確認済み・finished_at を記録。
+     */
+    private ChangeRequest handleComplete(ChangeRequest cr, AppUserPrincipal actor,
+                                         TransitionContext ctx, ChangeRequestStatus before, String comment) {
+        stateMachine.validate(cr, TransitionAction.COMPLETE, actor, ctx);
+
+        if (!executionService.canComplete(cr)) {
+            throw new IllegalStateTransitionException(
+                    "完了条件を満たしていません",
+                    "完了には IaC 適用が成功し、必須の実施後ヘルスチェックがすべて正常である必要があります",
+                    cr.getStatus().name(),
+                    stateMachine.allowedActions(cr, actor));
+        }
+
+        stateMachine.transition(cr, TransitionAction.COMPLETE, actor, ctx);
+        executionService.markCompleted(cr);
+
+        ChangeRequest saved = repository.save(cr);
+        auditService.record(actor, saved.getId(), AuditAction.EXECUTION_COMPLETE,
+                before, saved.getStatus(), comment, null);
+        return saved;
+    }
+
+    /** FAIL（IN_PROGRESS→FAILED）：実施記録の finished_at を記録。 */
+    private ChangeRequest handleFail(ChangeRequest cr, AppUserPrincipal actor,
+                                     TransitionContext ctx, ChangeRequestStatus before, String comment) {
+        stateMachine.transition(cr, TransitionAction.FAIL, actor, ctx);
+        executionService.markFailed(cr);
+
+        ChangeRequest saved = repository.save(cr);
+        auditService.record(actor, saved.getId(), AuditAction.EXECUTION_FAIL,
+                before, saved.getStatus(), comment, null);
+        return saved;
+    }
+
+    /** ROLLBACK（FAILED→ROLLED_BACK）：rollback_performed・rollback_note(=comment) を記録。 */
+    private ChangeRequest handleRollback(ChangeRequest cr, AppUserPrincipal actor,
+                                         TransitionContext ctx, ChangeRequestStatus before, String comment) {
+        stateMachine.transition(cr, TransitionAction.ROLLBACK, actor, ctx);
+        executionService.recordRollback(cr, comment);
+
+        ChangeRequest saved = repository.save(cr);
+        auditService.record(actor, saved.getId(), AuditAction.ROLLBACK,
                 before, saved.getStatus(), comment, null);
         return saved;
     }

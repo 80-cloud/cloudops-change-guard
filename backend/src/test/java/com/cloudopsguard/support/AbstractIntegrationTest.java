@@ -10,6 +10,9 @@ import com.cloudopsguard.domain.common.ChangeRequestStatus;
 import com.cloudopsguard.domain.common.Environment;
 import com.cloudopsguard.domain.common.IacType;
 import com.cloudopsguard.domain.common.Role;
+import com.cloudopsguard.domain.execution.ExecutionRepository;
+import com.cloudopsguard.domain.execution.PostExecutionHealthCheckRepository;
+import com.cloudopsguard.domain.execution.PreExecutionCheckRepository;
 import com.cloudopsguard.domain.policy.PolicyRuleRepository;
 import com.cloudopsguard.domain.policy.PolicyViolationRepository;
 import com.cloudopsguard.domain.risk.RiskAssessmentFindingRepository;
@@ -70,6 +73,9 @@ public abstract class AbstractIntegrationTest {
     @Autowired protected PolicyViolationRepository policyViolationRepository;
     @Autowired protected RiskAssessmentRepository riskAssessmentRepository;
     @Autowired protected RiskAssessmentFindingRepository riskAssessmentFindingRepository;
+    @Autowired protected PreExecutionCheckRepository preExecutionCheckRepository;
+    @Autowired protected PostExecutionHealthCheckRepository postExecutionHealthCheckRepository;
+    @Autowired protected ExecutionRepository executionRepository;
     @Autowired protected PasswordEncoder passwordEncoder;
 
     @AfterEach
@@ -81,6 +87,9 @@ public abstract class AbstractIntegrationTest {
         riskAssessmentFindingRepository.deleteAll();   // risk_assessments の子
         riskAssessmentRepository.deleteAll();           // change_requests の子
         policyViolationRepository.deleteAll();           // change_requests / policy_rules の子
+        executionRepository.deleteAll();                 // change_requests の子
+        preExecutionCheckRepository.deleteAll();         // change_requests の子
+        postExecutionHealthCheckRepository.deleteAll();  // change_requests の子
         changeRequestRepository.deleteAll();
         refreshTokenRepository.deleteAll();
         policyRuleRepository.deleteAll();

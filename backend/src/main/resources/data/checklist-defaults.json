@@ -22,5 +22,6 @@
   "healthResultValues": ["HEALTHY", "WARNING", "UNHEALTHY", "NOT_CHECKED"],
   "completionRule": {
     "note": "IaC適用成功とサービス正常性は別概念。COMPLETED は iac_apply_result=SUCCESS かつ service_health_confirmed=true の場合のみ。IaC成功でもヘルスチェックに UNHEALTHY があれば COMPLETED にしない（または警告付き扱い）。"
-  }
+  },
+  "requiredForCompletion": ["IAC_APPLY", "HTTP_HEALTH", "DB_CONNECTION"]
 }
