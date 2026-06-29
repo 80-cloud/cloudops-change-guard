@@ -5,11 +5,13 @@ import {
   getChangeRequest, getApprovals, getComments, getAuditLogs,
   getPolicyViolations, getRiskAssessment, transitionChangeRequest, createComment,
 } from '../api/changeRequests';
+import { completePreCheck, recordHealthCheck, recordExecutionResult } from '../api/execution';
 import type {
   ChangeRequestDetailResponse, RiskAssessmentResponse, PolicyViolationResponse,
   ApprovalResponse, AuditLogResponse, CommentResponse, HealthCheckResponse,
   CheckType, HealthCheckItem, HealthResult, Decision, TransitionAction,
 } from '../types/api';
+import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../lib/errorMessages';
 import { formatDateTime } from '../lib/dateUtils';
 import RiskBadge from '../components/RiskBadge';
@@ -61,6 +63,7 @@ const userLabel = (id: number | null) => (id == null ? '—' : `ユーザー #${
 export default function ChangeRequestDetailPage() {
   const { id } = useParams();
   const crId = Number(id);
+  const { user } = useAuth();
   const [detail, setDetail] = useState<ChangeRequestDetailResponse | null>(null);
   const [risk, setRisk] = useState<RiskAssessmentResponse | null>(null);
   const [policies, setPolicies] = useState<PolicyViolationResponse[]>([]);
@@ -80,6 +83,12 @@ export default function ChangeRequestDetailPage() {
   const [commentBody, setCommentBody] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
+
+  const [hcItem, setHcItem] = useState<HealthCheckItem>('IAC_APPLY');
+  const [hcResult, setHcResult] = useState<HealthResult>('HEALTHY');
+  const [hcNote, setHcNote] = useState('');
+  const [execBusy, setExecBusy] = useState(false);
+  const [execError, setExecError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [d, r, p, a, au, c] = await Promise.all([
@@ -142,6 +151,19 @@ export default function ChangeRequestDetailPage() {
     }
   };
 
+  const runExec = async (fn: () => Promise<unknown>) => {
+    setExecBusy(true); setExecError(null);
+    try {
+      await fn();
+      await load();
+    } catch (e) {
+      setExecError(getErrorMessage(e, '記録に失敗しました'));
+      if (isAxiosError(e) && e.response?.status === 409) { await load().catch(() => undefined); }
+    } finally {
+      setExecBusy(false);
+    }
+  };
+
   if (loading) return <div className="text-gray-500">読み込み中…</div>;
   if (error || !detail) {
     return (
@@ -153,6 +175,7 @@ export default function ChangeRequestDetailPage() {
   }
 
   const cr = detail.changeRequest;
+  const isOperator = user?.role === 'OPERATOR';
   const iacApply = detail.healthChecks.filter((h) => h.checkItem === 'IAC_APPLY');
   const otherHealth = detail.healthChecks.filter((h) => h.checkItem !== 'IAC_APPLY');
 
@@ -289,11 +312,15 @@ export default function ChangeRequestDetailPage() {
                 <span className={c.completed ? 'text-green-700' : 'text-gray-400'}>{c.completed ? '✓' : '○'}</span>
                 <span className="text-gray-700">{CHECK_TYPE_LABEL[c.checkType]}</span>
                 {c.required && <span className="rounded bg-gray-200 px-1 text-xs text-gray-600">必須</span>}
+                {isOperator && cr.status === 'SCHEDULED' && !c.completed && (
+                  <button type="button" disabled={execBusy} onClick={() => runExec(() => completePreCheck(crId, c.id))} className="ml-auto rounded border border-violet-300 bg-violet-50 px-2 py-0.5 text-xs font-bold text-violet-700 hover:bg-violet-100 disabled:opacity-40">完了にする</button>
+                )}
                 {c.completed && <span className="ml-auto text-xs text-gray-500">{userLabel(c.completedBy)}・{formatDateTime(c.completedAt)}</span>}
               </li>
             ))}
           </ul>
         )}
+        {isOperator && cr.status === 'SCHEDULED' && execError && <div role="alert" className="mt-2 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{execError}</div>}
       </Section>
 
       <Section title="実施後ヘルスチェック">
@@ -320,6 +347,44 @@ export default function ChangeRequestDetailPage() {
           </div>
         </div>
       </Section>
+
+      {isOperator && cr.status === 'IN_PROGRESS' && (
+        <Section title="実施記録の入力">
+          <div className="space-y-4">
+            <div>
+              <h3 className="mb-1 text-sm font-bold text-gray-600">IaC 適用結果</h3>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" disabled={execBusy} onClick={() => runExec(() => recordExecutionResult(crId, 'SUCCESS'))} className="rounded bg-green-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-40">適用成功を記録</button>
+                <button type="button" disabled={execBusy} onClick={() => runExec(() => recordExecutionResult(crId, 'FAILED'))} className="rounded bg-red-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-40">適用失敗を記録</button>
+              </div>
+            </div>
+            <div>
+              <h3 className="mb-1 text-sm font-bold text-gray-600">ヘルスチェックの記録</h3>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="text-sm">
+                  <span className="mr-1 text-gray-600">項目</span>
+                  <select value={hcItem} onChange={(e) => setHcItem(e.target.value as HealthCheckItem)} className="rounded border border-gray-300 px-2 py-1">
+                    {(Object.keys(HEALTH_ITEM_LABEL) as HealthCheckItem[]).map((k) => <option key={k} value={k}>{HEALTH_ITEM_LABEL[k]}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mr-1 text-gray-600">結果</span>
+                  <select value={hcResult} onChange={(e) => setHcResult(e.target.value as HealthResult)} className="rounded border border-gray-300 px-2 py-1">
+                    {(Object.keys(HEALTH_RESULT) as HealthResult[]).map((k) => <option key={k} value={k}>{HEALTH_RESULT[k].label}</option>)}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  <span className="mr-1 text-gray-600">備考</span>
+                  <input value={hcNote} onChange={(e) => setHcNote(e.target.value)} className="rounded border border-gray-300 px-2 py-1" />
+                </label>
+                <button type="button" disabled={execBusy} onClick={() => runExec(async () => { await recordHealthCheck(crId, { checkItem: hcItem, result: hcResult, note: hcNote.trim() || undefined }); setHcNote(''); })} className="rounded bg-blue-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40">記録</button>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">完了には「IaC 適用成功」の記録と、必須ヘルス項目（IaC適用・HTTPヘルス・DB接続）がすべて正常である必要があります。</p>
+            {execError && <div role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{execError}</div>}
+          </div>
+        </Section>
+      )}
 
       <Section title="監査ログ">
         {audits.length === 0 ? (
