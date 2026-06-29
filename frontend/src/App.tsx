@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ChangeRequestsPage from './pages/ChangeRequestsPage';
 import ChangeRequestNewPage from './pages/ChangeRequestNewPage';
+import ChangeRequestDetailPage from './pages/ChangeRequestDetailPage';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/change-requests/:id" element={<ChangeRequestDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
