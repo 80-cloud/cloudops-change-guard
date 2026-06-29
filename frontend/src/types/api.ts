@@ -4,6 +4,9 @@ export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type Role = 'REQUESTER' | 'REVIEWER' | 'OPERATOR' | 'ADMIN';
 export type Decision = 'APPROVED' | 'REJECTED' | 'RETURNED';
 export type IacApplyResult = 'SUCCESS' | 'FAILED';
+export type CheckType = 'BACKUP' | 'ROLLBACK' | 'MONITORING' | 'IMPACT' | 'STAKEHOLDER' | 'WINDOW' | 'APPROVAL';
+export type HealthCheckItem = 'IAC_APPLY' | 'ALB_TARGET_HEALTH' | 'EC2_SSM' | 'HTTP_HEALTH' | 'CW_ALARM' | 'APP_REACHABILITY' | 'DB_CONNECTION' | 'NOTE';
+export type HealthResult = 'HEALTHY' | 'WARNING' | 'UNHEALTHY' | 'NOT_CHECKED';
 export type ChangeRequestStatus =
   | 'DRAFT' | 'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'REJECTED'
   | 'RETURNED' | 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
@@ -36,8 +39,8 @@ export interface ChangeRequestResponse {
   status: ChangeRequestStatus; riskLevel: RiskLevel | null; requesterId: number;
   version: number; createdAt: string; updatedAt: string; allowedActions: TransitionAction[];
 }
-export interface PreCheckResponse { id: number; checkType: string; required: boolean; completed: boolean; completedBy: number | null; completedAt: string | null; }
-export interface HealthCheckResponse { id: number; checkItem: string; result: string; note: string | null; recordedBy: number; recordedAt: string; }
+export interface PreCheckResponse { id: number; checkType: CheckType; required: boolean; completed: boolean; completedBy: number | null; completedAt: string | null; }
+export interface HealthCheckResponse { id: number; checkItem: HealthCheckItem; result: HealthResult; note: string | null; recordedBy: number; recordedAt: string; }
 export interface ExecutionResponse {
   id: number; changeRequestId: number; operatorId: number; iacApplyResult: IacApplyResult;
   serviceHealthConfirmed: boolean; startedAt: string; finishedAt: string | null;

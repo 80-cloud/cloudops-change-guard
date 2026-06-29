@@ -74,7 +74,7 @@ export default function ChangeRequestsPage() {
                 <tr key={r.id} className={r.targetEnvironment === 'production' ? 'border-t border-red-200 bg-red-50' : 'border-t border-gray-100'}>
                   <td className="px-3 py-2">
                     {r.targetEnvironment === 'production' && <span className="mr-1 rounded bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white">本番</span>}
-                    {r.title}
+                    <Link to={`/change-requests/${r.id}`} className="text-blue-600 hover:underline">{r.title}</Link>
                   </td>
                   <td className="px-3 py-2"><EnvBadge env={r.targetEnvironment} /></td>
                   <td className="px-3 py-2"><RiskBadge level={r.riskLevel} /></td>
