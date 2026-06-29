@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import ChangeRequestsPage from './pages/ChangeRequestsPage';
 import ChangeRequestNewPage from './pages/ChangeRequestNewPage';
 import ChangeRequestDetailPage from './pages/ChangeRequestDetailPage';
+import PendingApprovalPage from './pages/PendingApprovalPage';
 
 export default function App() {
   return (
@@ -23,6 +24,14 @@ export default function App() {
           }
         />
         <Route path="/change-requests/:id" element={<ChangeRequestDetailPage />} />
+        <Route
+          path="/pending-approval"
+          element={
+            <ProtectedRoute roles={['REVIEWER']}>
+              <PendingApprovalPage />
+            </ProtectedRoute>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

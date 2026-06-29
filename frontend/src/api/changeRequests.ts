@@ -81,3 +81,8 @@ export const getRiskAssessment = (id: number): Promise<RiskAssessmentResponse | 
       if (isAxiosError(e) && e.response?.status === 404) return null;
       throw e;
     });
+
+export const getPendingApproval = (params: { page?: number; size?: number; sort?: string } = {}) =>
+  client
+    .get<ApiResponse<PageResponse<ChangeRequestSummary>>>('/change-requests/pending-approval', { params })
+    .then((r) => r.data.data);

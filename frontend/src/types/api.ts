@@ -72,3 +72,11 @@ export interface CreateChangeRequest {
 }
 export interface TransitionRequest { comment?: string; scheduledAt?: string; }
 export interface CreateComment { body: string; }
+
+export interface DashboardSummaryResponse {
+  statusCounts: Partial<Record<ChangeRequestStatus, number>>;
+  highRisk: ChangeRequestSummary[];
+  pendingApproval: ChangeRequestSummary[];
+  scheduled: ChangeRequestSummary[];
+  recentAudit: AuditLogResponse[];
+}
