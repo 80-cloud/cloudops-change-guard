@@ -33,3 +33,33 @@ variable "vpc_cidr" {
   type        = string
   default     = "10.0.0.0/16"
 }
+
+variable "db_instance_class" {
+  description = "RDS インスタンスクラス（無料枠を既定）"
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "db_engine_version" {
+  description = "PostgreSQL のメジャーバージョン"
+  type        = string
+  default     = "16"
+}
+
+variable "db_name" {
+  description = "作成するデータベース名"
+  type        = string
+  default     = "cloudops"
+}
+
+variable "db_username" {
+  description = "マスターユーザー名（パスワードは AWS 管理）"
+  type        = string
+  default     = "cloudops"
+}
+
+variable "db_allocated_storage" {
+  description = "RDS ストレージ容量（GB）"
+  type        = number
+  default     = 20
+}

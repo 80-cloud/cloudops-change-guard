@@ -1,5 +1,11 @@
-region              = "ap-northeast-1"
-project_name        = "cloudops-change-guard"
-environment         = "dev"
-monthly_budget_usd  = 5
-budget_alert_emails = ["you@example.com"]
+region               = "ap-northeast-1"
+project_name         = "cloudops-change-guard"
+environment          = "dev"
+monthly_budget_usd   = 5
+budget_alert_emails  = ["you@example.com"]
+vpc_cidr             = "10.0.0.0/16"
+db_instance_class    = "db.t3.micro"
+db_engine_version    = "16"
+db_name              = "cloudops"
+db_username          = "cloudops"
+db_allocated_storage = 20
