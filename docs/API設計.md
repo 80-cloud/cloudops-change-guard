@@ -49,6 +49,7 @@
 | メソッド | パス | 説明 | 権限 |
 |---|---|---|---|
 | GET | `/change-requests` | 一覧（filter: environment,status,risk,requesterId / page,size） | 認証（REQUESTERは自分のみ） |
+| GET | `/change-requests/pending-approval` | 承認待ち一覧（自分が承認できるもの） | REVIEWER |
 | POST | `/change-requests` | 作成（DRAFT） | REQUESTER |
 | GET | `/change-requests/{id}` | 詳細（承認/チェック/監査含む・JOIN FETCH） | 認証（所有/権限検証） |
 | PUT | `/change-requests/{id}` | 編集（DRAFT/RETURNEDの所有者のみ） | REQUESTER(所有者) |
