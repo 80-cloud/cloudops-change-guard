@@ -167,21 +167,21 @@ export default function ChangeRequestNewPage() {
       {error && <div role="alert" className="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
 
       <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-5">
-        <Text label={LABELS.title} required value={f.title} error={fieldErrors.title} onChange={set('title')} />
+        <Text id="title" label={LABELS.title} required value={f.title} error={fieldErrors.title} onChange={set('title')} />
         <div className="flex flex-wrap gap-4">
-          <SelectField label={LABELS.targetEnvironment} required value={f.targetEnvironment} options={ENVS} onChange={set('targetEnvironment')} />
-          <SelectField label={LABELS.iacType} required value={f.iacType} options={IAC_TYPES} onChange={set('iacType')} />
+          <SelectField id="targetEnvironment" label={LABELS.targetEnvironment} required value={f.targetEnvironment} options={ENVS} onChange={set('targetEnvironment')} />
+          <SelectField id="iacType" label={LABELS.iacType} required value={f.iacType} options={IAC_TYPES} onChange={set('iacType')} />
         </div>
-        <Text label={LABELS.targetAwsService} hint="提出時必須" value={f.targetAwsService} error={fieldErrors.targetAwsService} onChange={set('targetAwsService')} />
-        <Text label={LABELS.targetResourceName} hint="提出時必須" value={f.targetResourceName} error={fieldErrors.targetResourceName} onChange={set('targetResourceName')} />
-        <Area label={LABELS.changeReason} hint="提出時必須" value={f.changeReason} error={fieldErrors.changeReason} onChange={set('changeReason')} />
-        <Area label={LABELS.changeSummary} hint="提出時必須" value={f.changeSummary} error={fieldErrors.changeSummary} onChange={set('changeSummary')} />
-        <Area label={LABELS.diffText} hint="提出時必須" mono value={f.diffText} error={fieldErrors.diffText} onChange={set('diffText')} />
+        <Text id="targetAwsService" label={LABELS.targetAwsService} hint="提出時必須" value={f.targetAwsService} error={fieldErrors.targetAwsService} onChange={set('targetAwsService')} />
+        <Text id="targetResourceName" label={LABELS.targetResourceName} hint="提出時必須" value={f.targetResourceName} error={fieldErrors.targetResourceName} onChange={set('targetResourceName')} />
+        <Area id="changeReason" label={LABELS.changeReason} hint="提出時必須" value={f.changeReason} error={fieldErrors.changeReason} onChange={set('changeReason')} />
+        <Area id="changeSummary" label={LABELS.changeSummary} hint="提出時必須" value={f.changeSummary} error={fieldErrors.changeSummary} onChange={set('changeSummary')} />
+        <Area id="diffText" label={LABELS.diffText} hint="提出時必須" mono value={f.diffText} error={fieldErrors.diffText} onChange={set('diffText')} />
         <div className="flex flex-col">
-          <label className="mb-1 text-sm font-medium text-gray-700">{LABELS.scheduledAt}</label>
-          <input type="datetime-local" value={f.scheduledAt} onChange={set('scheduledAt')} className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          <label htmlFor="scheduledAt" className="mb-1 text-sm font-medium text-gray-700">{LABELS.scheduledAt}</label>
+          <input id="scheduledAt" type="datetime-local" value={f.scheduledAt} onChange={set('scheduledAt')} className="rounded border border-gray-300 px-3 py-2 text-sm" />
         </div>
-        <Area label={LABELS.rollbackProcedure} value={f.rollbackProcedure} onChange={set('rollbackProcedure')} />
+        <Area id="rollbackProcedure" label={LABELS.rollbackProcedure} value={f.rollbackProcedure} onChange={set('rollbackProcedure')} />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
@@ -242,40 +242,40 @@ export default function ChangeRequestNewPage() {
   );
 }
 
-function Text({ label, value, onChange, required, hint, error }: { label: string; value: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; required?: boolean; hint?: string; error?: string }) {
+function Text({ id, label, value, onChange, required, hint, error }: { id: string; label: string; value: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; required?: boolean; hint?: string; error?: string }) {
   return (
     <div className="flex flex-col">
-      <FieldLabel label={label} required={required} hint={hint} />
-      <input value={value} onChange={onChange} className={`rounded border px-3 py-2 text-sm ${error ? 'border-red-400' : 'border-gray-300'}`} />
+      <FieldLabel label={label} required={required} hint={hint} htmlFor={id} />
+      <input id={id} value={value} onChange={onChange} className={`rounded border px-3 py-2 text-sm ${error ? 'border-red-400' : 'border-gray-300'}`} />
       {error && <span className="mt-1 text-xs text-red-600">{error}</span>}
     </div>
   );
 }
 
-function Area({ label, value, onChange, required, hint, error, mono }: { label: string; value: string; onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void; required?: boolean; hint?: string; error?: string; mono?: boolean }) {
+function Area({ id, label, value, onChange, required, hint, error, mono }: { id: string; label: string; value: string; onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void; required?: boolean; hint?: string; error?: string; mono?: boolean }) {
   return (
     <div className="flex flex-col">
-      <FieldLabel label={label} required={required} hint={hint} />
-      <textarea value={value} onChange={onChange} rows={mono ? 6 : 3} className={`rounded border px-3 py-2 text-sm ${mono ? 'font-mono' : ''} ${error ? 'border-red-400' : 'border-gray-300'}`} />
+      <FieldLabel label={label} required={required} hint={hint} htmlFor={id} />
+      <textarea id={id} value={value} onChange={onChange} rows={mono ? 6 : 3} className={`rounded border px-3 py-2 text-sm ${mono ? 'font-mono' : ''} ${error ? 'border-red-400' : 'border-gray-300'}`} />
       {error && <span className="mt-1 text-xs text-red-600">{error}</span>}
     </div>
   );
 }
 
-function SelectField({ label, value, options, onChange, required }: { label: string; value: string; options: string[]; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; required?: boolean }) {
+function SelectField({ id, label, value, options, onChange, required }: { id: string; label: string; value: string; options: string[]; onChange: (e: ChangeEvent<HTMLSelectElement>) => void; required?: boolean }) {
   return (
     <div className="flex flex-col">
-      <FieldLabel label={label} required={required} />
-      <select value={value} onChange={onChange} className="rounded border border-gray-300 px-3 py-2 text-sm">
+      <FieldLabel label={label} required={required} htmlFor={id} />
+      <select id={id} value={value} onChange={onChange} className="rounded border border-gray-300 px-3 py-2 text-sm">
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
     </div>
   );
 }
 
-function FieldLabel({ label, required, hint }: { label: string; required?: boolean; hint?: string }) {
+function FieldLabel({ label, required, hint, htmlFor }: { label: string; required?: boolean; hint?: string; htmlFor?: string }) {
   return (
-    <label className="mb-1 text-sm font-medium text-gray-700">
+    <label htmlFor={htmlFor} className="mb-1 text-sm font-medium text-gray-700">
       {label}
       {required && <span className="ml-1 text-red-600">*</span>}
       {hint && <span className="ml-2 text-xs font-normal text-gray-400">{hint}</span>}
