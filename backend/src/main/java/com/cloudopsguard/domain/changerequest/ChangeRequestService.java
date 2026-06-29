@@ -23,6 +23,8 @@ import com.cloudopsguard.domain.risk.AssessmentOutcome;
 import com.cloudopsguard.domain.risk.BlockReason;
 import com.cloudopsguard.domain.risk.RiskAssessmentService;
 import com.cloudopsguard.domain.risk.RiskFinding;
+import com.cloudopsguard.domain.notification.NotificationService;
+import com.cloudopsguard.domain.notification.NotificationType;
 import com.cloudopsguard.security.AppUserPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +51,7 @@ public class ChangeRequestService {
     private final RiskAssessmentService riskAssessmentService;
     private final ApprovalFlowMatrix approvalFlowMatrix;
     private final ExecutionService executionService;
+    private final NotificationService notificationService;
 
     public ChangeRequestService(ChangeRequestRepository repository,
                                 ChangeRequestStateMachine stateMachine,
@@ -56,7 +59,8 @@ public class ChangeRequestService {
                                 AuditService auditService,
                                 RiskAssessmentService riskAssessmentService,
                                 ApprovalFlowMatrix approvalFlowMatrix,
-                                ExecutionService executionService) {
+                                ExecutionService executionService,
+                                NotificationService notificationService) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.approvalRepository = approvalRepository;
@@ -64,6 +68,7 @@ public class ChangeRequestService {
         this.riskAssessmentService = riskAssessmentService;
         this.approvalFlowMatrix = approvalFlowMatrix;
         this.executionService = executionService;
+        this.notificationService = notificationService;
     }
 
     // ---- 作成・編集 ----
@@ -213,6 +218,7 @@ public class ChangeRequestService {
         ChangeRequest saved = repository.save(cr);   // 明示 save（ダーティチェック依存にしない・B5）
         auditService.record(actor, saved.getId(), auditActionFor(action),
                 before, saved.getStatus(), comment, null);
+        notifyForTransition(action, saved);
         return saved;
     }
 
@@ -252,6 +258,9 @@ public class ChangeRequestService {
         ChangeRequest saved = repository.save(cr);
         auditService.record(actor, saved.getId(), AuditAction.APPROVE,
                 before, saved.getStatus(), comment, null);
+        if (saved.getStatus() == ChangeRequestStatus.APPROVED) {
+            notificationService.notify(NotificationType.APPROVED_FOR_EXECUTION, saved);
+        }
         return saved;
     }
 
@@ -304,6 +313,7 @@ public class ChangeRequestService {
         ChangeRequest saved = repository.save(cr);
         auditService.record(actor, saved.getId(), AuditAction.EXECUTION_COMPLETE,
                 before, saved.getStatus(), comment, null);
+        notificationService.notify(NotificationType.EXECUTION_COMPLETED, saved);
         return saved;
     }
 
@@ -316,6 +326,7 @@ public class ChangeRequestService {
         ChangeRequest saved = repository.save(cr);
         auditService.record(actor, saved.getId(), AuditAction.EXECUTION_FAIL,
                 before, saved.getStatus(), comment, null);
+        notificationService.notify(NotificationType.EXECUTION_FAILED, saved);
         return saved;
     }
 
@@ -329,6 +340,16 @@ public class ChangeRequestService {
         auditService.record(actor, saved.getId(), AuditAction.ROLLBACK,
                 before, saved.getStatus(), comment, null);
         return saved;
+    }
+
+    /** 主要遷移の通知配線（送信失敗は NotificationService 内で握り潰し本処理を止めない）。 */
+    private void notifyForTransition(TransitionAction action, ChangeRequest cr) {
+        switch (action) {
+            case SUBMIT -> notificationService.notify(NotificationType.SUBMITTED_FOR_REVIEW, cr);
+            case REJECT -> notificationService.notify(NotificationType.REJECTED, cr);
+            case RETURN_ -> notificationService.notify(NotificationType.RETURNED, cr);
+            default -> { }
+        }
     }
 
     private RiskLevel riskLevelOf(ChangeRequest cr) {
