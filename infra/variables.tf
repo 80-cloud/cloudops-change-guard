@@ -27,3 +27,9 @@ variable "budget_alert_emails" {
   type        = list(string)
   default     = []
 }
+
+variable "vpc_cidr" {
+  description = "VPC の CIDR ブロック"
+  type        = string
+  default     = "10.0.0.0/16"
+}
