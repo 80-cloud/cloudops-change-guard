@@ -17,6 +17,7 @@ export default function Header() {
           <nav className="flex gap-1">
             <NavLink to="/" end className={linkCls}>ダッシュボード</NavLink>
             <NavLink to="/change-requests" className={linkCls}>変更申請</NavLink>
+            {user?.role === 'REVIEWER' && <NavLink to="/pending-approval" className={linkCls}>承認待ち</NavLink>}
           </nav>
         </div>
         <div className="flex items-center gap-3 text-sm">
