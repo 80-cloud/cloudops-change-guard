@@ -1,19 +1,21 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { isAxiosError } from 'axios';
 import { useParams, Link } from 'react-router-dom';
 import {
   getChangeRequest, getApprovals, getComments, getAuditLogs,
-  getPolicyViolations, getRiskAssessment,
+  getPolicyViolations, getRiskAssessment, transitionChangeRequest, createComment,
 } from '../api/changeRequests';
 import type {
   ChangeRequestDetailResponse, RiskAssessmentResponse, PolicyViolationResponse,
   ApprovalResponse, AuditLogResponse, CommentResponse, HealthCheckResponse,
-  CheckType, HealthCheckItem, HealthResult, Decision,
+  CheckType, HealthCheckItem, HealthResult, Decision, TransitionAction,
 } from '../types/api';
 import { getErrorMessage } from '../lib/errorMessages';
 import { formatDateTime } from '../lib/dateUtils';
 import RiskBadge from '../components/RiskBadge';
 import EnvBadge from '../components/EnvBadge';
 import StatusBadge from '../components/StatusBadge';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const CHECK_TYPE_LABEL: Record<CheckType, string> = {
   BACKUP: 'バックアップ', ROLLBACK: '切戻し', MONITORING: '監視',
@@ -36,6 +38,24 @@ const DECISION: Record<Decision, { label: string; cls: string }> = {
   RETURNED: { label: '差戻し', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
 };
 
+type CommentMode = 'none' | 'optional' | 'required';
+interface ActionConfig {
+  label: string; cls: string; danger?: boolean; comment: CommentMode; schedule?: boolean; message?: string;
+}
+const ACTIONS: Record<TransitionAction, ActionConfig> = {
+  submit: { label: '提出', cls: 'bg-blue-600 hover:bg-blue-700', comment: 'optional', message: 'この内容で提出します。提出時は全ての必須項目が必要です。' },
+  cancel: { label: '取消', cls: 'bg-gray-500 hover:bg-gray-600', danger: true, comment: 'optional', message: 'この変更申請を取り消します。' },
+  'review-start': { label: '査閲開始', cls: 'bg-indigo-600 hover:bg-indigo-700', comment: 'none', message: '査閲を開始します。' },
+  approve: { label: '承認', cls: 'bg-teal-600 hover:bg-teal-700', comment: 'optional', message: 'この変更を承認します。重大度によっては2名の承認が必要です。' },
+  reject: { label: '却下', cls: 'bg-rose-600 hover:bg-rose-700', danger: true, comment: 'optional', message: 'この変更申請を却下します。' },
+  return: { label: '差戻し', cls: 'bg-amber-600 hover:bg-amber-700', comment: 'required', message: '申請者へ差し戻します。理由のコメントが必須です。' },
+  schedule: { label: '実施予定登録', cls: 'bg-sky-600 hover:bg-sky-700', comment: 'optional', schedule: true, message: '実施予定日時を登録します。' },
+  start: { label: '実施開始', cls: 'bg-violet-600 hover:bg-violet-700', danger: true, comment: 'none', message: '変更の実施を開始します。本番では必須の実施前チェック完了が必要です。' },
+  complete: { label: '完了', cls: 'bg-green-600 hover:bg-green-700', comment: 'optional', message: '実施を完了として記録します。' },
+  fail: { label: '失敗', cls: 'bg-red-600 hover:bg-red-700', danger: true, comment: 'optional', message: '実施を失敗として記録します。' },
+  rollback: { label: '切戻し', cls: 'bg-orange-600 hover:bg-orange-700', danger: true, comment: 'optional', message: '切戻しを実施します。' },
+};
+
 const userLabel = (id: number | null) => (id == null ? '—' : `ユーザー #${id}`);
 
 export default function ChangeRequestDetailPage() {
@@ -51,23 +71,76 @@ export default function ChangeRequestDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [openFinding, setOpenFinding] = useState<Record<number, boolean>>({});
 
+  const [actionOpen, setActionOpen] = useState<TransitionAction | null>(null);
+  const [actionComment, setActionComment] = useState('');
+  const [actionScheduled, setActionScheduled] = useState('');
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const [commentBody, setCommentBody] = useState('');
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const [d, r, p, a, au, c] = await Promise.all([
+      getChangeRequest(crId), getRiskAssessment(crId), getPolicyViolations(crId),
+      getApprovals(crId), getAuditLogs(crId), getComments(crId),
+    ]);
+    setDetail(d); setRisk(r); setPolicies(p); setApprovals(a); setAudits(au); setComments(c);
+  }, [crId]);
+
   useEffect(() => {
     if (!Number.isInteger(crId)) { setError('変更申請が見つかりません'); setLoading(false); return; }
     let active = true;
     setLoading(true);
-    Promise.all([
-      getChangeRequest(crId), getRiskAssessment(crId), getPolicyViolations(crId),
-      getApprovals(crId), getAuditLogs(crId), getComments(crId),
-    ])
-      .then(([d, r, p, a, au, c]) => {
-        if (!active) return;
-        setDetail(d); setRisk(r); setPolicies(p); setApprovals(a); setAudits(au); setComments(c);
-        setError(null);
-      })
+    load()
+      .then(() => { if (active) setError(null); })
       .catch((e) => { if (active) setError(getErrorMessage(e, '変更申請が見つかりません')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [crId]);
+  }, [crId, load]);
+
+  const onActionClick = (a: TransitionAction) => {
+    setActionError(null); setActionComment(''); setActionScheduled('');
+    setActionOpen(a);
+  };
+
+  const runAction = async (a: TransitionAction) => {
+    const cfg = ACTIONS[a];
+    if (cfg.comment === 'required' && !actionComment.trim()) { setActionError('コメントは必須です'); return; }
+    if (cfg.schedule && !actionScheduled) { setActionError('実施予定日時は必須です'); return; }
+    let scheduledAt: string | undefined;
+    if (cfg.schedule && actionScheduled) {
+      const dt = new Date(actionScheduled);
+      if (Number.isNaN(dt.getTime())) { setActionError('実施予定日時が不正です'); return; }
+      scheduledAt = dt.toISOString();
+    }
+    setActionBusy(true); setActionError(null);
+    try {
+      await transitionChangeRequest(crId, a, { comment: actionComment.trim() || undefined, scheduledAt });
+      setActionOpen(null);
+      await load();
+    } catch (e) {
+      setActionError(getErrorMessage(e, '操作に失敗しました'));
+      if (isAxiosError(e) && e.response?.status === 409) { await load().catch(() => undefined); }
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const onPostComment = async () => {
+    if (!commentBody.trim()) return;
+    setCommentBusy(true); setCommentError(null);
+    try {
+      await createComment(crId, commentBody.trim());
+      setCommentBody('');
+      setComments(await getComments(crId));
+    } catch (e) {
+      setCommentError(getErrorMessage(e, 'コメントの投稿に失敗しました'));
+    } finally {
+      setCommentBusy(false);
+    }
+  };
 
   if (loading) return <div className="text-gray-500">読み込み中…</div>;
   if (error || !detail) {
@@ -106,6 +179,18 @@ export default function ChangeRequestDetailPage() {
           <Field label="更新" value={formatDateTime(cr.updatedAt)} />
         </dl>
       </header>
+
+      {cr.allowedActions.length > 0 && (
+        <section className="rounded-lg border border-gray-200 bg-white p-4">
+          <h2 className="mb-2 text-lg font-bold text-gray-800">操作</h2>
+          <div className="flex flex-wrap gap-2">
+            {cr.allowedActions.map((a) => (
+              <button key={a} type="button" onClick={() => onActionClick(a)} className={`rounded px-4 py-2 text-sm font-bold text-white ${ACTIONS[a].cls}`}>{ACTIONS[a].label}</button>
+            ))}
+          </div>
+          {actionError && !actionOpen && <div role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</div>}
+        </section>
+      )}
 
       <Section title="概要">
         <dl className="grid grid-cols-1 gap-y-2 text-sm text-gray-700">
@@ -257,7 +342,7 @@ export default function ChangeRequestDetailPage() {
         {comments.length === 0 ? (
           <p className="text-sm text-gray-500">コメントはありません。</p>
         ) : (
-          <ul className="space-y-2 text-sm">
+          <ul className="mb-3 space-y-2 text-sm">
             {comments.map((c) => (
               <li key={c.id} className="border-b border-gray-100 pb-2">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -268,7 +353,40 @@ export default function ChangeRequestDetailPage() {
             ))}
           </ul>
         )}
+        <div className="flex flex-col gap-2">
+          <textarea value={commentBody} onChange={(e) => setCommentBody(e.target.value)} rows={2} placeholder="コメントを入力" className="rounded border border-gray-300 px-3 py-2 text-sm" />
+          {commentError && <span className="text-xs text-red-600">{commentError}</span>}
+          <div>
+            <button type="button" disabled={commentBusy || !commentBody.trim()} onClick={onPostComment} className="rounded bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-40">コメントを投稿</button>
+          </div>
+        </div>
       </Section>
+
+      {actionOpen && (
+        <ConfirmDialog
+          title={`${ACTIONS[actionOpen].label}しますか？`}
+          message={ACTIONS[actionOpen].message}
+          confirmLabel={ACTIONS[actionOpen].label}
+          danger={ACTIONS[actionOpen].danger}
+          busy={actionBusy}
+          error={actionError}
+          onCancel={() => setActionOpen(null)}
+          onConfirm={() => runAction(actionOpen)}
+        >
+          {ACTIONS[actionOpen].comment !== 'none' && (
+            <label className="block text-sm">
+              <span className="text-gray-600">コメント{ACTIONS[actionOpen].comment === 'required' ? '（必須）' : '（任意）'}</span>
+              <textarea value={actionComment} onChange={(e) => setActionComment(e.target.value)} rows={2} className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm" />
+            </label>
+          )}
+          {ACTIONS[actionOpen].schedule && (
+            <label className="mt-2 block text-sm">
+              <span className="text-gray-600">実施予定日時（必須）</span>
+              <input type="datetime-local" value={actionScheduled} onChange={(e) => setActionScheduled(e.target.value)} className="mt-1 block rounded border border-gray-300 px-3 py-2 text-sm" />
+            </label>
+          )}
+        </ConfirmDialog>
+      )}
     </div>
   );
 }
