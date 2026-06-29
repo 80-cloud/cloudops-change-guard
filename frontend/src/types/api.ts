@@ -80,3 +80,11 @@ export interface DashboardSummaryResponse {
   scheduled: ChangeRequestSummary[];
   recentAudit: AuditLogResponse[];
 }
+
+export interface PolicyResponse {
+  code: string;
+  name: string;
+  environmentScope: string;
+  effect: string;
+  enabled: boolean;
+}

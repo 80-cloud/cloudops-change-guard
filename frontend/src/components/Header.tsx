@@ -18,6 +18,7 @@ export default function Header() {
             <NavLink to="/" end className={linkCls}>ダッシュボード</NavLink>
             <NavLink to="/change-requests" className={linkCls}>変更申請</NavLink>
             {user?.role === 'REVIEWER' && <NavLink to="/pending-approval" className={linkCls}>承認待ち</NavLink>}
+            {user?.role === 'ADMIN' && <NavLink to="/policies" className={linkCls}>ポリシー</NavLink>}
           </nav>
         </div>
         <div className="flex items-center gap-3 text-sm">
