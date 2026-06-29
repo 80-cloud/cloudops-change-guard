@@ -39,19 +39,19 @@ public class ChangeRequest {
     @Column(name = "iac_type", nullable = false, length = 20)
     private IacType iacType;
 
-    @Column(name = "target_aws_service", nullable = false, length = 50)
+    @Column(name = "target_aws_service", length = 50)
     private String targetAwsService;
 
-    @Column(name = "target_resource_name", nullable = false, length = 200)
+    @Column(name = "target_resource_name", length = 200)
     private String targetResourceName;
 
-    @Column(name = "change_reason", nullable = false, columnDefinition = "text")
+    @Column(name = "change_reason", columnDefinition = "text")
     private String changeReason;
 
-    @Column(name = "change_summary", nullable = false, columnDefinition = "text")
+    @Column(name = "change_summary", columnDefinition = "text")
     private String changeSummary;
 
-    @Column(name = "diff_text", nullable = false, columnDefinition = "text")
+    @Column(name = "diff_text", columnDefinition = "text")
     private String diffText;
 
     @Column(name = "scheduled_at")
