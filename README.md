@@ -52,6 +52,8 @@ AWS連携は抽象化インターフェース越し（MVPはモック、将来 C
 | 4 | 実施前チェック / 実施後ヘルスチェック / ダッシュボード | ✅ 完了 |
 | 5 | フロントエンド（SCR画面）/ テスト追加 / README整備 / デモデータ | ✅ 完了 |
 | 追加 | E2E自動テスト（Playwright・申請→承認→実施→監査）/ 通知基盤（Port/Adapter・mock先行） | ✅ 完了 |
+| A-1 | AWS デプロイ雛形（infra/・VPC / RDS / EC2 / IAM / KMS / Budgets）＋安全レール＋認証情報なしの静的 CI | ✅ 完了（実 apply なし） |
+| A-2 | 実 AWS 統合（実 plan 取込・CloudWatch 実値・実 apply は人の承認ゲート） | ⏳ 計画 |
 
 ## 想定される技術的リスク
 
