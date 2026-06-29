@@ -1,0 +1,49 @@
+name: Infra Check
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  infra-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+
+      - name: terraform fmt
+        run: terraform -chdir=infra fmt -check -recursive
+
+      - name: terraform init
+        run: terraform -chdir=infra init -backend=false -input=false
+
+      - name: terraform validate
+        run: terraform -chdir=infra validate -no-color
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: tflint
+        run: |
+          cd infra
+          tflint --init
+          tflint -f compact
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infra
