@@ -18,6 +18,22 @@
 
 ---
 
+## 2026-06-30: AWS Tier 4 デプロイ雛形を追加（実 apply なし）
+
+- **変更内容**: `infra/` に Terraform でデプロイ構成（VPC / プライベートサブネット / VPC フローログ / KMS 鍵 / RDS PostgreSQL / EC2 / IAM ロール / 予算アラート）を追加。実際の apply は行わない雛形。
+- **適用した防御**:
+  - [x] AWS Budgets を定義（通知先は tfvars）
+  - [x] 重要リソース（RDS）に prevent_destroy と deletion_protection
+  - [x] マスターパスワードは AWS 管理（コードに秘密を置かない）／ストレージ・Performance Insights・マスター秘密を KMS 鍵で暗号化
+  - [x] EC2 は IMDSv2 必須・受信なし・SSM 運用（鍵レス）
+  - [x] PR ベースのワークフロー（apply / destroy は人の承認をはさむ。AI 単独実行はしない）
+  - [x] CLAUDE.md のプロジェクト概要に Tier 4 を記録
+- **追加した GitHub workflow**: `.github/workflows/infra-check.yml`（認証情報なしで fmt / validate / tflint / tfsec。apply なし・infra 変更時のみ）
+- **無料枠への影響**: 雛形のみで実リソースは未作成のため現状ゼロ。実 apply する場合は EC2 t3.micro / RDS db.t3.micro（12 か月無料枠）を既定にし Budgets で監視。
+- **次に注意すべきこと**: 次フェーズ（実 AWS 統合）は実 plan 取込・CloudWatch 実値・実 apply の連携。実リソースを読む段はローカルエミュレート（Testcontainers）か実アカウントが要る。実 apply は人の承認を必ずはさむ。
+
+---
+
 ## 移行記録テンプレ（コピーして使う）
 
 ```markdown
