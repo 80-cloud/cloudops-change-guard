@@ -7,6 +7,7 @@ import ChangeRequestsPage from './pages/ChangeRequestsPage';
 import ChangeRequestNewPage from './pages/ChangeRequestNewPage';
 import ChangeRequestDetailPage from './pages/ChangeRequestDetailPage';
 import PendingApprovalPage from './pages/PendingApprovalPage';
+import PoliciesPage from './pages/PoliciesPage';
 
 export default function App() {
   return (
@@ -29,6 +30,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={['REVIEWER']}>
               <PendingApprovalPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/policies"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <PoliciesPage />
             </ProtectedRoute>
           }
         />
