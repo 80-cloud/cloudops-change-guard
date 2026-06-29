@@ -34,6 +34,12 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
+variable "instance_type" {
+  description = "アプリ用 EC2 インスタンスタイプ（無料枠を既定）"
+  type        = string
+  default     = "t3.micro"
+}
+
 variable "db_instance_class" {
   description = "RDS インスタンスクラス（無料枠を既定）"
   type        = string
