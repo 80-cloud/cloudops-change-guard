@@ -1,0 +1,5 @@
+region              = "ap-northeast-1"
+project_name        = "cloudops-change-guard"
+environment         = "dev"
+monthly_budget_usd  = 5
+budget_alert_emails = ["you@example.com"]
