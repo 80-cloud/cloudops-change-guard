@@ -3,7 +3,7 @@ import client from './client';
 import type {
   ApiResponse, PageResponse, ChangeRequestSummary, ChangeRequestResponse,
   ChangeRequestDetailResponse, CreateChangeRequest, PreviewRiskResponse, TransitionRequest,
-  ApprovalResponse, CommentResponse, AuditLogResponse,
+  TransitionAction, ApprovalResponse, CommentResponse, AuditLogResponse,
   RiskAssessmentResponse, PolicyViolationResponse,
   Environment, ChangeRequestStatus, RiskLevel,
 } from '../types/api';
@@ -41,6 +41,16 @@ export const previewRisk = (body: CreateChangeRequest) =>
 export const submitChangeRequest = (id: number, body: TransitionRequest = {}) =>
   client
     .post<ApiResponse<ChangeRequestResponse>>(`/change-requests/${id}/submit`, body)
+    .then((r) => r.data.data);
+
+export const transitionChangeRequest = (id: number, action: TransitionAction, body: TransitionRequest = {}) =>
+  client
+    .post<ApiResponse<ChangeRequestResponse>>(`/change-requests/${id}/${action}`, body)
+    .then((r) => r.data.data);
+
+export const createComment = (id: number, body: string) =>
+  client
+    .post<ApiResponse<CommentResponse>>(`/change-requests/${id}/comments`, { body })
     .then((r) => r.data.data);
 
 export const getApprovals = (id: number) =>
