@@ -37,7 +37,7 @@ resource "aws_iam_instance_profile" "app" {
 
 resource "aws_security_group" "app" {
   name        = "${var.project_name}-app"
-  description = "アプリ用 EC2 のアクセス制御（受信なし・SSM 経由で運用）"
+  description = "App EC2 access control (no inbound, via SSM)"
   vpc_id      = aws_vpc.main.id
 
   tags = {
@@ -47,7 +47,7 @@ resource "aws_security_group" "app" {
 
 resource "aws_vpc_security_group_egress_rule" "app_https" {
   security_group_id = aws_security_group.app.id
-  description       = "SSM とパッケージ取得のための HTTPS 送信"
+  description       = "HTTPS egress for SSM and package fetch"
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 443
   to_port           = 443
