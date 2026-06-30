@@ -52,3 +52,11 @@ yarn.lock
 
 # 置換辞書（語そのものを含む）dev 専用ツール。cp -R で運ばれるが公開はしない
 scripts/blackbox-replace.py
+
+# Terraform 実 apply の生成物・機密（コミット禁止 / 入場ゲート）
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
+# 実環境のスクリーンショット（アカウントID/ARN が写るため公開しない）
+screenshots/
