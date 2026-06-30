@@ -7,6 +7,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.ssm.SsmClient;
 import software.amazon.awssdk.services.sts.StsClient;
 
 import java.net.URI;
@@ -48,6 +49,17 @@ public class AwsClientConfig {
     @Bean
     public CloudWatchClient cloudWatchClient(CloudopsAwsProperties props) {
         var builder = CloudWatchClient.builder()
+                .region(Region.of(props.region()))
+                .credentialsProvider(DefaultCredentialsProvider.create());
+        if (hasOverride(props)) {
+            builder = builder.endpointOverride(URI.create(props.endpointOverride()));
+        }
+        return builder.build();
+    }
+
+    @Bean
+    public SsmClient ssmClient(CloudopsAwsProperties props) {
+        var builder = SsmClient.builder()
                 .region(Region.of(props.region()))
                 .credentialsProvider(DefaultCredentialsProvider.create());
         if (hasOverride(props)) {

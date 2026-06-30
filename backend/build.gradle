@@ -44,6 +44,7 @@ dependencies {
 	implementation 'software.amazon.awssdk:sts'
 	implementation 'software.amazon.awssdk:s3'
 	implementation 'software.amazon.awssdk:cloudwatch'
+	implementation 'software.amazon.awssdk:ssm'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
