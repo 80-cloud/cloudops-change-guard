@@ -11,6 +11,7 @@ import com.cloudopsguard.domain.approval.ApprovalRequirement;
 import com.cloudopsguard.domain.audit.AuditService;
 import com.cloudopsguard.domain.changerequest.ChangeRequestStateMachine.TransitionContext;
 import com.cloudopsguard.domain.changerequest.dto.CreateChangeRequest;
+import com.cloudopsguard.domain.risk.IaCChangeProvider;
 import com.cloudopsguard.domain.changerequest.dto.TransitionRequest;
 import com.cloudopsguard.domain.changerequest.dto.UpdateChangeRequest;
 import com.cloudopsguard.domain.common.*;
@@ -52,6 +53,7 @@ public class ChangeRequestService {
     private final ApprovalFlowMatrix approvalFlowMatrix;
     private final ExecutionService executionService;
     private final NotificationService notificationService;
+    private final IaCChangeProvider iaCChangeProvider;
 
     public ChangeRequestService(ChangeRequestRepository repository,
                                 ChangeRequestStateMachine stateMachine,
@@ -60,7 +62,8 @@ public class ChangeRequestService {
                                 RiskAssessmentService riskAssessmentService,
                                 ApprovalFlowMatrix approvalFlowMatrix,
                                 ExecutionService executionService,
-                                NotificationService notificationService) {
+                                NotificationService notificationService,
+                                IaCChangeProvider iaCChangeProvider) {
         this.repository = repository;
         this.stateMachine = stateMachine;
         this.approvalRepository = approvalRepository;
@@ -69,6 +72,7 @@ public class ChangeRequestService {
         this.approvalFlowMatrix = approvalFlowMatrix;
         this.executionService = executionService;
         this.notificationService = notificationService;
+        this.iaCChangeProvider = iaCChangeProvider;
     }
 
     // ---- 作成・編集 ----
@@ -84,7 +88,7 @@ public class ChangeRequestService {
         cr.setTargetResourceName(req.targetResourceName());
         cr.setChangeReason(req.changeReason());
         cr.setChangeSummary(req.changeSummary());
-        cr.setDiffText(req.diffText());
+        cr.setDiffText(iaCChangeProvider.resolveDiffText(req.planSourceRef(), req.diffText()));
         cr.setScheduledAt(req.scheduledAt());
         cr.setRollbackProcedure(req.rollbackProcedure());
         cr.setStatus(ChangeRequestStatus.DRAFT);

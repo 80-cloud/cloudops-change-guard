@@ -32,13 +32,15 @@ public class RiskAssessmentService {
     private final PolicyViolationRepository policyViolationRepository;
     private final PolicyRuleRepository policyRuleRepository;
     private final ChangeRequestRepository changeRequestRepository;
+    private final IaCChangeProvider iaCChangeProvider;
 
     public RiskAssessmentService(RiskEngine riskEngine, PolicyEngine policyEngine,
                                  RiskAssessmentRepository riskAssessmentRepository,
                                  RiskAssessmentFindingRepository riskFindingRepository,
                                  PolicyViolationRepository policyViolationRepository,
                                  PolicyRuleRepository policyRuleRepository,
-                                 ChangeRequestRepository changeRequestRepository) {
+                                 ChangeRequestRepository changeRequestRepository,
+                                 IaCChangeProvider iaCChangeProvider) {
         this.riskEngine = riskEngine;
         this.policyEngine = policyEngine;
         this.riskAssessmentRepository = riskAssessmentRepository;
@@ -46,6 +48,7 @@ public class RiskAssessmentService {
         this.policyViolationRepository = policyViolationRepository;
         this.policyRuleRepository = policyRuleRepository;
         this.changeRequestRepository = changeRequestRepository;
+        this.iaCChangeProvider = iaCChangeProvider;
     }
 
     /** 判定して永続化し、総合結果を返す。呼び出し側のトランザクションに参加する。 */
@@ -103,7 +106,7 @@ public class RiskAssessmentService {
         cr.setIacType(req.iacType());
         cr.setTargetAwsService(req.targetAwsService());
         cr.setTargetResourceName(req.targetResourceName());
-        cr.setDiffText(req.diffText());
+        cr.setDiffText(iaCChangeProvider.resolveDiffText(req.planSourceRef(), req.diffText()));
         RiskAssessmentResult risk = riskEngine.assess(cr);
         PolicyEvaluationResult policy = policyEngine.evaluate(cr, risk);
         return new AssessmentOutcome(risk, policy, risk.blocked() || policy.blocked());
