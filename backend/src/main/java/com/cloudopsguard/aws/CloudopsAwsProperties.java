@@ -10,7 +10,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *
  * @param region           AWS リージョン（既定 ap-northeast-1・infra/variables.tf と一致）
  * @param endpointOverride 空＝実 AWS。LocalStack 検証時のみ http://localhost:4566 を指定する切替点
+ * @param planBucket       実 plan(text) を置く S3 バケット名（取込元・空なら取込しない）
  */
 @ConfigurationProperties(prefix = "cloudops.aws")
-public record CloudopsAwsProperties(String region, String endpointOverride) {
+public record CloudopsAwsProperties(String region, String endpointOverride, String planBucket) {
 }

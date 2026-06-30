@@ -42,6 +42,7 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	// AWS 連携（read-only）。STS=疎通確認用。S3/CloudWatch/SSM は後続増分で追加。
 	implementation 'software.amazon.awssdk:sts'
+	implementation 'software.amazon.awssdk:s3'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
@@ -50,6 +51,7 @@ dependencies {
 	// 結合テストは Testcontainers PostgreSQL（本番同等で方言差を避ける）
 	testImplementation 'org.testcontainers:junit-jupiter'
 	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:localstack'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
