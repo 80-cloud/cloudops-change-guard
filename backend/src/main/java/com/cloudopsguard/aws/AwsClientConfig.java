@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sts.StsClient;
 
@@ -40,6 +41,17 @@ public class AwsClientConfig {
         if (hasOverride(props)) {
             builder = builder.endpointOverride(URI.create(props.endpointOverride()))
                     .forcePathStyle(true);
+        }
+        return builder.build();
+    }
+
+    @Bean
+    public CloudWatchClient cloudWatchClient(CloudopsAwsProperties props) {
+        var builder = CloudWatchClient.builder()
+                .region(Region.of(props.region()))
+                .credentialsProvider(DefaultCredentialsProvider.create());
+        if (hasOverride(props)) {
+            builder = builder.endpointOverride(URI.create(props.endpointOverride()));
         }
         return builder.build();
     }

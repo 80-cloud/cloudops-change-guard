@@ -43,6 +43,7 @@ dependencies {
 	// AWS 連携（read-only）。STS=疎通確認用。S3/CloudWatch/SSM は後続増分で追加。
 	implementation 'software.amazon.awssdk:sts'
 	implementation 'software.amazon.awssdk:s3'
+	implementation 'software.amazon.awssdk:cloudwatch'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
