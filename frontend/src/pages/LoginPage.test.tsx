@@ -15,23 +15,21 @@ vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({ login: loginMock }),
 }));
 
-describe('LoginPage クイックログイン', () => {
+describe('LoginPage デモクイックログイン', () => {
   beforeEach(() => {
     navigateMock.mockReset();
     loginMock.mockReset();
     loginMock.mockResolvedValue({});
   });
 
-  it('4ロール分のクイックログインボタンを表示する', () => {
+  it('デモボタンを1つだけ表示する', () => {
     render(<LoginPage />);
-    for (const name of ['管理者で入る', '申請者で入る', '査閲者で入る', '実施者で入る']) {
-      expect(screen.getByRole('button', { name })).toBeInTheDocument();
-    }
+    expect(screen.getByRole('button', { name: 'デモを試す（管理者）' })).toBeInTheDocument();
   });
 
-  it('「管理者で入る」で admin 資格の login を呼び / に遷移する', async () => {
+  it('デモボタンで admin 資格の login を呼び / に遷移する', async () => {
     render(<LoginPage />);
-    fireEvent.click(screen.getByRole('button', { name: '管理者で入る' }));
+    fireEvent.click(screen.getByRole('button', { name: 'デモを試す（管理者）' }));
     expect(loginMock).toHaveBeenCalledWith('admin', 'ChangeMe!2026');
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/', { replace: true }));
   });
