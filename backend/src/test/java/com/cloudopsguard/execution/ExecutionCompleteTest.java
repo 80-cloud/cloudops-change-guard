@@ -48,7 +48,7 @@ class ExecutionCompleteTest extends AbstractIntegrationTest {
     void iac成功かつ必須ヘルス全HEALTHYでCOMPLETEできる() {
         ChangeRequest cr = inProgressCr();
         AppUserPrincipal op = principal(operator);
-        executionService.recordExecutionResult(cr.getId(), new RecordExecutionResult(IacApplyResult.SUCCESS));
+        executionService.recordExecutionResult(op, cr.getId(), new RecordExecutionResult(IacApplyResult.SUCCESS));
         recordHealth(cr, HealthCheckItem.IAC_APPLY, HealthResult.HEALTHY);
         recordHealth(cr, HealthCheckItem.HTTP_HEALTH, HealthResult.HEALTHY);
         recordHealth(cr, HealthCheckItem.DB_CONNECTION, HealthResult.HEALTHY);
@@ -65,7 +65,7 @@ class ExecutionCompleteTest extends AbstractIntegrationTest {
     void iac成功でも必須ヘルスにUNHEALTHYがあればCOMPLETEは409() {
         ChangeRequest cr = inProgressCr();
         AppUserPrincipal op = principal(operator);
-        executionService.recordExecutionResult(cr.getId(), new RecordExecutionResult(IacApplyResult.SUCCESS));
+        executionService.recordExecutionResult(op, cr.getId(), new RecordExecutionResult(IacApplyResult.SUCCESS));
         recordHealth(cr, HealthCheckItem.IAC_APPLY, HealthResult.HEALTHY);
         recordHealth(cr, HealthCheckItem.HTTP_HEALTH, HealthResult.HEALTHY);
         recordHealth(cr, HealthCheckItem.DB_CONNECTION, HealthResult.UNHEALTHY);

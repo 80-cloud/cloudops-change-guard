@@ -54,7 +54,7 @@ AWS連携は抽象化インターフェース越し（MVPはモック、将来 C
 | 追加 | E2E自動テスト（Playwright・申請→承認→実施→監査）/ 通知基盤（Port/Adapter・mock先行） | ✅ 完了 |
 | A-1 | AWS デプロイ雛形（infra/・VPC / RDS / EC2 / IAM / KMS / Budgets）＋安全レール＋認証情報なしの静的 CI | ✅ 完了（実 apply なし） |
 | A-2a | 実 AWS 連携（read-only）：実 plan(S3) 取込・CloudWatch/SSM 実値で実施後ヘルス。Port/Adapter＋プロファイル切替・LocalStack で結合検証 | ✅ 完了 |
-| A-2b | 実 apply 連携（実行結果の記録に留め、apply は人の承認ゲート） | ⏳ 計画 |
+| A-2b | 実 apply 連携（実行結果の記録に留め、apply は人の承認ゲート） | 🚧 進行中（記録の受け口を実装・実接続は据え置き） |
 
 ## 想定される技術的リスク
 
