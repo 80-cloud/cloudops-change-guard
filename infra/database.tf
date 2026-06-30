@@ -9,7 +9,7 @@ resource "aws_db_subnet_group" "main" {
 
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds"
-  description = "RDS PostgreSQL へのアクセスを VPC 内に限定する"
+  description = "Restrict RDS PostgreSQL access to the VPC"
   vpc_id      = aws_vpc.main.id
 
   tags = {
@@ -19,7 +19,7 @@ resource "aws_security_group" "rds" {
 
 resource "aws_vpc_security_group_ingress_rule" "rds_postgres" {
   security_group_id = aws_security_group.rds.id
-  description       = "VPC 内からの PostgreSQL 接続を許可"
+  description       = "Allow PostgreSQL from within the VPC"
   cidr_ipv4         = var.vpc_cidr
   from_port         = 5432
   to_port           = 5432
