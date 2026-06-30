@@ -45,6 +45,7 @@ export interface ExecutionResponse {
   id: number; changeRequestId: number; operatorId: number; iacApplyResult: IacApplyResult;
   serviceHealthConfirmed: boolean; startedAt: string; finishedAt: string | null;
   rollbackPerformed: boolean; rollbackNote: string | null;
+  applyRunUrl: string | null; planSourceRef: string | null;
 }
 export interface ChangeRequestDetailResponse {
   changeRequest: ChangeRequestResponse;
