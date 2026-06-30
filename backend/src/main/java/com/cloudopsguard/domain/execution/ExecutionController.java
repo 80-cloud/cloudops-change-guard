@@ -73,6 +73,6 @@ public class ExecutionController {
             @AuthenticationPrincipal AppUserPrincipal actor, @PathVariable Long id,
             @Valid @RequestBody RecordExecutionResult req) {
         changeRequestService.getViewable(actor, id);
-        return ApiResponse.of(executionService.recordExecutionResult(id, req));
+        return ApiResponse.of(executionService.recordExecutionResult(actor, id, req));
     }
 }

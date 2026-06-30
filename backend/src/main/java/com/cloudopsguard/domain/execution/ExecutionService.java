@@ -4,6 +4,8 @@ import com.cloudopsguard.common.exception.NotFoundException;
 import com.cloudopsguard.domain.approval.ApprovalFlowMatrix;
 import com.cloudopsguard.domain.approval.ApprovalRequirement;
 import com.cloudopsguard.domain.changerequest.ChangeRequest;
+import com.cloudopsguard.domain.audit.AuditService;
+import com.cloudopsguard.domain.common.AuditAction;
 import com.cloudopsguard.domain.common.RiskLevel;
 import com.cloudopsguard.domain.execution.dto.CreateHealthCheck;
 import com.cloudopsguard.domain.execution.dto.ExecutionResponse;
@@ -35,6 +37,7 @@ public class ExecutionService {
     private final ApprovalFlowMatrix approvalFlowMatrix;
     private final MonitoringStatusProvider monitoringStatusProvider;
     private final InstanceStatusProvider instanceStatusProvider;
+    private final AuditService auditService;
 
     public ExecutionService(PreExecutionCheckRepository preCheckRepository,
                             PostExecutionHealthCheckRepository healthCheckRepository,
@@ -42,7 +45,8 @@ public class ExecutionService {
                             ChecklistCatalog checklistCatalog,
                             ApprovalFlowMatrix approvalFlowMatrix,
                             MonitoringStatusProvider monitoringStatusProvider,
-                            InstanceStatusProvider instanceStatusProvider) {
+                            InstanceStatusProvider instanceStatusProvider,
+                            AuditService auditService) {
         this.preCheckRepository = preCheckRepository;
         this.healthCheckRepository = healthCheckRepository;
         this.executionRepository = executionRepository;
@@ -50,6 +54,7 @@ public class ExecutionService {
         this.approvalFlowMatrix = approvalFlowMatrix;
         this.monitoringStatusProvider = monitoringStatusProvider;
         this.instanceStatusProvider = instanceStatusProvider;
+        this.auditService = auditService;
     }
 
     // ---- 実施前チェック ----
@@ -173,12 +178,18 @@ public class ExecutionService {
         executionRepository.save(e);
     }
 
-    /** 実行結果（IaC 適用結果）を最新 execution に設定する（決定A）。実施未開始は 404。 */
+    /** 実行結果（IaC 適用結果）と外部 apply の証跡を最新 execution に記録する（決定A・A-2b）。実施未開始は 404。 */
     @Transactional
-    public ExecutionResponse recordExecutionResult(Long changeRequestId, RecordExecutionResult req) {
+    public ExecutionResponse recordExecutionResult(AppUserPrincipal actor, Long changeRequestId,
+                                                   RecordExecutionResult req) {
         Execution e = latestOrThrow(changeRequestId);
         e.setIacApplyResult(req.iacApplyResult());
-        return ExecutionResponse.from(executionRepository.save(e));
+        e.setApplyRunUrl(req.applyRunUrl());
+        e.setPlanSourceRef(req.planSourceRef());
+        ExecutionResponse res = ExecutionResponse.from(executionRepository.save(e));
+        auditService.record(actor, changeRequestId, AuditAction.EXECUTION_RESULT_RECORD,
+                null, null, null, "IaC適用結果=" + req.iacApplyResult());
+        return res;
     }
 
     /** COMPLETE 可否判定（A-10）：iac_apply_result=SUCCESS かつ service_health_confirmed の導出が true。 */

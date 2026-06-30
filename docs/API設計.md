@@ -91,6 +91,9 @@
 | POST | `/change-requests/{id}/pre-checks/{checkId}/complete` | チェック完了 | OPERATOR |
 | GET | `/change-requests/{id}/health-checks` | 実施後ヘルスチェック一覧 | 認証 |
 | POST | `/change-requests/{id}/health-checks` | ヘルスチェック記録 | OPERATOR |
+| POST | `/change-requests/{id}/execution-result` | 実行結果の記録（IaC適用結果＋外部 apply の証跡） | OPERATOR |
+
+> `execution-result` リクエスト：`iacApplyResult`（SUCCESS / FAILED・必須）／`applyRunUrl`（外部で実行した apply の実行ログへのリンク・任意・最大2048）／`planSourceRef`（取り込んだ plan の参照・任意）。レスポンスは実行記録（実施者・適用結果・証跡・確認状況・各時刻）。Backend は apply を実行せず、外部で実行された結果を記録するだけで、記録時に監査（action_type=EXECUTION_RESULT_RECORD）を残す。
 
 ---
 

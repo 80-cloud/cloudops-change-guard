@@ -171,6 +171,8 @@ users (1) ──< refresh_tokens （ログインセッション・認証）
 | finished_at | TIMESTAMPTZ | NULL | |
 | rollback_performed | BOOLEAN | NOT NULL DEFAULT false | |
 | rollback_note | TEXT | NULL | |
+| apply_run_url | TEXT | NULL | 外部で実行した apply の実行ログ等へのリンク（A-2b） |
+| plan_source_ref | TEXT | NULL | 取り込んだ plan の参照（A-2b） |
 
 > 「IaC適用成功（iac_apply_result=SUCCESS）」と「サービス正常性確認済み（service_health_confirmed=true）」を別カラムで保持し、COMPLETED への遷移条件で区別する。
 
@@ -196,7 +198,7 @@ users (1) ──< refresh_tokens （ログインセッション・認証）
 | summary | TEXT | NULL | 変更内容の要約 |
 | created_at | TIMESTAMPTZ | NOT NULL | |
 
-`action_type`：CREATE / EDIT / SUBMIT / REVIEW_START / APPROVE / REJECT / RETURN / SCHEDULE / CANCEL / EXECUTION_START / EXECUTION_COMPLETE / EXECUTION_FAIL / ROLLBACK / POLICY_VIOLATION / COMMENT。
+`action_type`：CREATE / EDIT / SUBMIT / REVIEW_START / APPROVE / REJECT / RETURN / SCHEDULE / CANCEL / EXECUTION_START / EXECUTION_COMPLETE / EXECUTION_FAIL / ROLLBACK / EXECUTION_RESULT_RECORD / POLICY_VIOLATION / COMMENT。
 
 > **改ざん防止**：監査ログは Service 層で INSERT のみ許可。UPDATE / DELETE を行うリポジトリメソッドを設けない。アプリのロールに監査ログ編集権限を一切与えない（IPアドレスは今回保持しない）。
 

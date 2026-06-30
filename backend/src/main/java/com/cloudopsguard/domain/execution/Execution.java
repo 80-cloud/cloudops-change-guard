@@ -49,4 +49,10 @@ public class Execution {
 
     @Column(name = "rollback_note", columnDefinition = "text")
     private String rollbackNote;
+
+    @Column(name = "apply_run_url", columnDefinition = "text")
+    private String applyRunUrl;
+
+    @Column(name = "plan_source_ref", columnDefinition = "text")
+    private String planSourceRef;
 }
