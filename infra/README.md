@@ -7,6 +7,7 @@
 - 共通 KMS 鍵（自動ローテーション有効）
 - データベース（RDS PostgreSQL・prevent_destroy / deletion_protection）
 - アプリ実行（EC2・SSM 運用・IMDSv2 必須・KMS 暗号化 EBS）
+- plan 保管バケット（S3・read-only 取得元・KMS 暗号化・バージョニング・公開ブロック・prevent_destroy）
 - 予算アラート（AWS Budgets）
 
 ## 方針
