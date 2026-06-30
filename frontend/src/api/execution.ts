@@ -17,7 +17,14 @@ export const recordHealthCheck = (
     .post<ApiResponse<HealthCheckResponse>>(`/change-requests/${id}/health-checks`, body)
     .then((r) => r.data.data);
 
-export const recordExecutionResult = (id: number, iacApplyResult: IacApplyResult) =>
+export const recordExecutionResult = (
+  id: number,
+  iacApplyResult: IacApplyResult,
+  applyRunUrl?: string,
+) =>
   client
-    .post<ApiResponse<ExecutionResponse>>(`/change-requests/${id}/execution-result`, { iacApplyResult })
+    .post<ApiResponse<ExecutionResponse>>(`/change-requests/${id}/execution-result`, {
+      iacApplyResult,
+      applyRunUrl,
+    })
     .then((r) => r.data.data);

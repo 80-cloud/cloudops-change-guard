@@ -89,6 +89,7 @@ export default function ChangeRequestDetailPage() {
   const [hcNote, setHcNote] = useState('');
   const [execBusy, setExecBusy] = useState(false);
   const [execError, setExecError] = useState<string | null>(null);
+  const [applyRunUrl, setApplyRunUrl] = useState('');
 
   const load = useCallback(async () => {
     const [d, r, p, a, au, c] = await Promise.all([
@@ -334,6 +335,7 @@ export default function ChangeRequestDetailPage() {
                 </span>
                 <span className="text-gray-600">サービス正常性：{detail.execution.serviceHealthConfirmed ? '確認済' : '未確認'}</span>
                 {detail.execution.rollbackPerformed && <span className="rounded bg-orange-100 px-1.5 py-0.5 text-xs font-bold text-orange-800">切戻し実施</span>}
+                {detail.execution.applyRunUrl && <a href={detail.execution.applyRunUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">実行ログ</a>}
               </div>
             ) : iacApply.length > 0 ? (
               <HealthList items={iacApply} />
@@ -353,9 +355,13 @@ export default function ChangeRequestDetailPage() {
           <div className="space-y-4">
             <div>
               <h3 className="mb-1 text-sm font-bold text-gray-600">IaC 適用結果</h3>
+              <label className="mb-2 block text-sm">
+                <span className="mb-1 block text-gray-600">実行ログ URL（任意）</span>
+                <input value={applyRunUrl} onChange={(e) => setApplyRunUrl(e.target.value)} placeholder="https://… 外部で実行した apply のログ" maxLength={2048} className="w-full rounded border border-gray-300 px-2 py-1" />
+              </label>
               <div className="flex flex-wrap gap-2">
-                <button type="button" disabled={execBusy} onClick={() => runExec(() => recordExecutionResult(crId, 'SUCCESS'))} className="rounded bg-green-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-40">適用成功を記録</button>
-                <button type="button" disabled={execBusy} onClick={() => runExec(() => recordExecutionResult(crId, 'FAILED'))} className="rounded bg-red-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-40">適用失敗を記録</button>
+                <button type="button" disabled={execBusy} onClick={() => runExec(async () => { await recordExecutionResult(crId, 'SUCCESS', applyRunUrl.trim() || undefined); setApplyRunUrl(''); })} className="rounded bg-green-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-green-700 disabled:opacity-40">適用成功を記録</button>
+                <button type="button" disabled={execBusy} onClick={() => runExec(async () => { await recordExecutionResult(crId, 'FAILED', applyRunUrl.trim() || undefined); setApplyRunUrl(''); })} className="rounded bg-red-600 px-3 py-1.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-40">適用失敗を記録</button>
               </div>
             </div>
             <div>
