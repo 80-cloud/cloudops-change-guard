@@ -34,19 +34,22 @@ public class ExecutionService {
     private final ChecklistCatalog checklistCatalog;
     private final ApprovalFlowMatrix approvalFlowMatrix;
     private final MonitoringStatusProvider monitoringStatusProvider;
+    private final InstanceStatusProvider instanceStatusProvider;
 
     public ExecutionService(PreExecutionCheckRepository preCheckRepository,
                             PostExecutionHealthCheckRepository healthCheckRepository,
                             ExecutionRepository executionRepository,
                             ChecklistCatalog checklistCatalog,
                             ApprovalFlowMatrix approvalFlowMatrix,
-                            MonitoringStatusProvider monitoringStatusProvider) {
+                            MonitoringStatusProvider monitoringStatusProvider,
+                            InstanceStatusProvider instanceStatusProvider) {
         this.preCheckRepository = preCheckRepository;
         this.healthCheckRepository = healthCheckRepository;
         this.executionRepository = executionRepository;
         this.checklistCatalog = checklistCatalog;
         this.approvalFlowMatrix = approvalFlowMatrix;
         this.monitoringStatusProvider = monitoringStatusProvider;
+        this.instanceStatusProvider = instanceStatusProvider;
     }
 
     // ---- 実施前チェック ----
@@ -126,7 +129,10 @@ public class ExecutionService {
         PostExecutionHealthCheck h = new PostExecutionHealthCheck();
         h.setChangeRequestId(changeRequestId);
         h.setCheckItem(req.checkItem());
-        h.setResult(monitoringStatusProvider.resolveResult(req.monitoringRef(), req.result()));
+        HealthResult resolved = req.checkItem() == HealthCheckItem.EC2_SSM
+                ? instanceStatusProvider.resolveResult(req.monitoringRef(), req.result())
+                : monitoringStatusProvider.resolveResult(req.monitoringRef(), req.result());
+        h.setResult(resolved);
         h.setNote(req.note());
         h.setRecordedBy(actor.userId());
         return HealthCheckResponse.from(healthCheckRepository.save(h));
