@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../lib/errorMessages';
-import { DEMO_ACCOUNTS, DEMO_LOGINS_ENABLED } from '../lib/demoAccounts';
+import { DEMO_ACCOUNT, DEMO_LOGINS_ENABLED } from '../lib/demoAccounts';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -61,20 +61,15 @@ export default function LoginPage() {
         </button>
         {DEMO_LOGINS_ENABLED && (
           <div className="space-y-2 border-t border-gray-200 pt-4">
-            <p className="text-xs text-gray-500">デモ用クイックログイン</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.username}
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => onQuickLogin(acc.username, acc.password)}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {acc.label}で入る
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              disabled={submitting}
+              onClick={() => onQuickLogin(DEMO_ACCOUNT.username, DEMO_ACCOUNT.password)}
+              className="w-full rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-100 disabled:opacity-50"
+            >
+              デモを試す（管理者）
+            </button>
+            <p className="text-xs text-gray-400">入力なしで管理者デモにアクセスします</p>
           </div>
         )}
       </form>
