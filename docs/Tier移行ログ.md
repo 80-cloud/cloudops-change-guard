@@ -53,6 +53,17 @@
 
 ---
 
+## 2026-06-30: A-2a 実 AWS 連携（read-only）を追加
+
+A-1（デプロイ雛形）に続き、アプリが実 AWS を read-only で参照する Port/Adapter を追加した（実 apply はしない）。
+
+- IaC 差分：S3 から terraform plan テキストを取得（`TerraformPlanAdapter`）→ 既存のリスク判定へ。
+- 監視：CloudWatch アラーム状態（`CloudWatchMonitoringAdapter`）／SSM インスタンス状態（`SsmStatusAdapter`）→ 実施後ヘルスへ。
+- 既定は Mock、`aws` プロファイルで実 Adapter に切替。SDK は Adapter 層に閉じ Service/Controller へ出さない。
+- 結合検証は LocalStack（S3・CloudWatch）。SSM の managed instance は LocalStack で作れないため写像は単体テストで網羅。
+- backend のテストを CI で機械ゲート化（`backend-check.yml`）。
+- 残：実 apply 連携（A-2b）は実行結果の記録に留め、apply は人の承認ゲートとする。
+
 ## Tier 変更がよく起こるパターン
 
 機能追加 PR を書くとき、以下に該当しないか確認する：
