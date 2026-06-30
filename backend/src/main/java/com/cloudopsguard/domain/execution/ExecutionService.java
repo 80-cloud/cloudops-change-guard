@@ -33,17 +33,20 @@ public class ExecutionService {
     private final ExecutionRepository executionRepository;
     private final ChecklistCatalog checklistCatalog;
     private final ApprovalFlowMatrix approvalFlowMatrix;
+    private final MonitoringStatusProvider monitoringStatusProvider;
 
     public ExecutionService(PreExecutionCheckRepository preCheckRepository,
                             PostExecutionHealthCheckRepository healthCheckRepository,
                             ExecutionRepository executionRepository,
                             ChecklistCatalog checklistCatalog,
-                            ApprovalFlowMatrix approvalFlowMatrix) {
+                            ApprovalFlowMatrix approvalFlowMatrix,
+                            MonitoringStatusProvider monitoringStatusProvider) {
         this.preCheckRepository = preCheckRepository;
         this.healthCheckRepository = healthCheckRepository;
         this.executionRepository = executionRepository;
         this.checklistCatalog = checklistCatalog;
         this.approvalFlowMatrix = approvalFlowMatrix;
+        this.monitoringStatusProvider = monitoringStatusProvider;
     }
 
     // ---- 実施前チェック ----
@@ -123,7 +126,7 @@ public class ExecutionService {
         PostExecutionHealthCheck h = new PostExecutionHealthCheck();
         h.setChangeRequestId(changeRequestId);
         h.setCheckItem(req.checkItem());
-        h.setResult(req.result());
+        h.setResult(monitoringStatusProvider.resolveResult(req.monitoringRef(), req.result()));
         h.setNote(req.note());
         h.setRecordedBy(actor.userId());
         return HealthCheckResponse.from(healthCheckRepository.save(h));
