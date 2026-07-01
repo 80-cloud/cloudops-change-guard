@@ -6,3 +6,4 @@
 - [ADR-0002 所有権のないリソースは404で応答する](0002-not-found-for-unowned-resources.md)
 - [ADR-0003 適用の成否とサービス正常性を分けて扱う](0003-separate-apply-success-from-service-health.md)
 - [ADR-0004 外部状態の取得を Port/Adapter で抽象化する](0004-port-adapter-for-external-state.md)
+- [ADR-0005 ランタイム/フレームワークのバージョン方針（Java 25 と Spring Boot）](0005-runtime-version-strategy.md)
