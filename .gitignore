@@ -52,3 +52,7 @@ yarn.lock
 
 # 置換辞書（語そのものを含む）dev 専用ツール。cp -R で運ばれるが公開はしない
 scripts/blackbox-replace.py
+
+# Python cache
+__pycache__/
+*.pyc
