@@ -1,7 +1,7 @@
 # GitHub 運用方針（無料枠最大活用・ポートフォリオ最適化）
 
 月50アプリ開発を **GitHub 無料枠のまま** 持続するための運用方針。
-学習目的・ポートフォリオ・学習記録の3観点を同時に満たす設計。
+個人開発・ポートフォリオ・記録の3観点を同時に満たす設計。
 
 > 関連：[NEW_REPO_CHECKLIST.md](./NEW_REPO_CHECKLIST.md)（リポ立ち上げ手順）・[MONITORING.md](./MONITORING.md)（無料枠監視盤）
 
@@ -281,7 +281,7 @@ gh workflow disable terraform-plan.yml   # 撤収後は workflow も停止
 
 ## 📝 学習記録の残し方
 
-学習目的・将来振り返り用に、以下を意識：
+将来の振り返り用に、以下を意識：
 
 ### コミットメッセージ
 
