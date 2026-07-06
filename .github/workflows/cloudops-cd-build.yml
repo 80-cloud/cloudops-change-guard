@@ -1,0 +1,78 @@
+name: CD Build
+
+# バックエンド jar とフロントエンド dist をビルドし、コミットSHAごとに不変な
+# 成果物として成果物バケットへ置く。配備（deploy）は別ワークフローの人間ゲート。
+# AWS 変数が未設定なら、ビルドだけ行いアップロードは安全にスキップする。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/cloudops-cd-build.yml"
+
+concurrency:
+  group: cd-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build backend (bootJar)
+        working-directory: backend
+        run: ./gradlew bootJar --no-daemon
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble artifact
+        run: |
+          mkdir -p artifact/dist
+          JAR=$(ls backend/build/libs/*.jar | grep -v -- '-plain' | head -n1)
+          cp "$JAR" artifact/app.jar
+          cp -r frontend/dist/* artifact/dist/
+          tar -C artifact -czf artifact.tgz app.jar dist
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Upload artifact to S3 (immutable by SHA)
+        if: ${{ vars.AWS_DEPLOY_ROLE_ARN != '' }}
+        run: |
+          aws s3 cp artifact.tgz "s3://${{ vars.ARTIFACTS_BUCKET }}/${{ github.sha }}/artifact.tgz"
+          echo "uploaded s3://${{ vars.ARTIFACTS_BUCKET }}/${{ github.sha }}/artifact.tgz"
+
+      - name: Skipped upload notice
+        if: ${{ vars.AWS_DEPLOY_ROLE_ARN == '' }}
+        run: echo "AWS_DEPLOY_ROLE_ARN 未設定のためアップロードをスキップ（ビルド検証のみ）"
