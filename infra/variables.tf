@@ -83,6 +83,12 @@ variable "app_repo_branch" {
   default     = "main"
 }
 
+variable "github_repo" {
+  description = "CD を実行する GitHub リポジトリ（OIDC の sub 条件に使用）"
+  type        = string
+  default     = "80-cloud/cloudops-change-guard"
+}
+
 variable "public_origin" {
   description = "公開オリジン（CORS 用・同一オリジン配信のため主に保険。TLS 化後に https://<host> を設定）"
   type        = string

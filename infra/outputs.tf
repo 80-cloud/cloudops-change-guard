@@ -24,3 +24,15 @@ output "rds_address" {
   description = "RDS ホスト名（プライベート・EC2 からのみ到達）"
   value       = aws_db_instance.main.address
 }
+
+# --- CD 用（GitHub の変数/シークレットに設定する値）---
+output "artifacts_bucket" {
+  description = "CD 成果物バケット名（GitHub 変数 ARTIFACTS_BUCKET に設定）"
+  value       = aws_s3_bucket.artifacts.bucket
+}
+
+output "ci_role_arn" {
+  description = "CI が OIDC で引き受けるロール ARN（GitHub 変数 AWS_DEPLOY_ROLE_ARN に設定）"
+  value       = aws_iam_role.ci.arn
+}
+
