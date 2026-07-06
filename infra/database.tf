@@ -9,7 +9,7 @@ resource "aws_db_subnet_group" "main" {
 
 resource "aws_security_group" "rds" {
   name        = "${var.project_name}-rds"
-  description = "Restrict RDS PostgreSQL access to the VPC"
+  description = "Restrict RDS PostgreSQL access to the app instance"
   vpc_id      = aws_vpc.main.id
 
   tags = {
@@ -17,13 +17,14 @@ resource "aws_security_group" "rds" {
   }
 }
 
+# アプリEC2のSGからのみ 5432 を許可（旧: VPC-CIDR全体 → app SG 限定に厳格化）。
 resource "aws_vpc_security_group_ingress_rule" "rds_postgres" {
-  security_group_id = aws_security_group.rds.id
-  description       = "Allow PostgreSQL from within the VPC"
-  cidr_ipv4         = var.vpc_cidr
-  from_port         = 5432
-  to_port           = 5432
-  ip_protocol       = "tcp"
+  security_group_id            = aws_security_group.rds.id
+  description                  = "Allow PostgreSQL from the app security group only"
+  referenced_security_group_id = aws_security_group.app.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
 }
 
 resource "aws_db_instance" "main" {

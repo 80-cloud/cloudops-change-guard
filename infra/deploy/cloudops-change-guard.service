@@ -1,0 +1,17 @@
+[Unit]
+Description=@PROJECT@ (Spring Boot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=cloudops
+Group=cloudops
+EnvironmentFile=/etc/@PROJECT@/app.env
+# t3.micro(1GB) 向けにヒープを抑える。jar は CD が /opt/@PROJECT@/app.jar へ配備する。
+ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar /opt/@PROJECT@/app.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -37,7 +37,7 @@ resource "aws_iam_instance_profile" "app" {
 
 resource "aws_security_group" "app" {
   name        = "${var.project_name}-app"
-  description = "App EC2 access control (no inbound, via SSM)"
+  description = "App EC2 web access and SSM egress"
   vpc_id      = aws_vpc.main.id
 
   tags = {
@@ -45,22 +45,66 @@ resource "aws_security_group" "app" {
   }
 }
 
-resource "aws_vpc_security_group_egress_rule" "app_https" {
+# 公開Webエンドポイントとして 80/443 を意図的に開放する（tfsec の public-ingress 指摘は設計通り）。
+# tfsec:ignore:aws-ec2-no-public-ingress-sgr
+resource "aws_vpc_security_group_ingress_rule" "app_http_in" {
   security_group_id = aws_security_group.app.id
-  description       = "HTTPS egress for SSM and package fetch"
+  description       = "HTTP from internet (redirect to HTTPS and ACME http-01)"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+}
+
+# tfsec:ignore:aws-ec2-no-public-ingress-sgr
+resource "aws_vpc_security_group_ingress_rule" "app_https_in" {
+  security_group_id = aws_security_group.app.id
+  description       = "HTTPS from internet"
   cidr_ipv4         = "0.0.0.0/0"
   from_port         = 443
   to_port           = 443
   ip_protocol       = "tcp"
 }
 
+resource "aws_vpc_security_group_egress_rule" "app_https" {
+  security_group_id = aws_security_group.app.id
+  description       = "HTTPS egress for SSM, secrets and package fetch"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+}
+
+resource "aws_vpc_security_group_egress_rule" "app_http" {
+  security_group_id = aws_security_group.app.id
+  description       = "HTTP egress for OS package mirrors"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  to_port           = 80
+  ip_protocol       = "tcp"
+}
+
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.al2023.id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.private[0].id
+  subnet_id                   = aws_subnet.public.id
   vpc_security_group_ids      = [aws_security_group.app.id]
   iam_instance_profile        = aws_iam_instance_profile.app.name
-  associate_public_ip_address = false
+  associate_public_ip_address = true
+
+  # user_data は「公開リポを clone → provision.sh 実行」だけの薄い起動役。
+  # 重い配線（runtime/nginx/systemd/秘密取得）は infra/deploy/provision.sh に集約する。
+  user_data = <<-BOOT
+    #!/bin/bash
+    set -eux
+    export PROJECT_NAME=${var.project_name}
+    export AWS_REGION=${var.region}
+    dnf install -y git
+    rm -rf /opt/deploy-src
+    git clone --depth 1 --branch ${var.app_repo_branch} ${var.app_repo_url} /opt/deploy-src
+    chmod +x /opt/deploy-src/infra/deploy/provision.sh
+    /opt/deploy-src/infra/deploy/provision.sh
+  BOOT
 
   metadata_options {
     http_endpoint = "enabled"
@@ -73,6 +117,17 @@ resource "aws_instance" "app" {
     volume_type = "gp3"
     volume_size = 20
   }
+
+  tags = {
+    Name = "${var.project_name}-app"
+  }
+}
+
+# 停止/起動でIPが変わらないよう Elastic IP を固定（DuckDNS が指す先）。
+# 12か月無料枠には public IPv4 750h/月が含まれる（1台なら実質無料）。
+resource "aws_eip" "app" {
+  instance = aws_instance.app.id
+  domain   = "vpc"
 
   tags = {
     Name = "${var.project_name}-app"

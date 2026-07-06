@@ -69,3 +69,46 @@ variable "db_allocated_storage" {
   type        = number
   default     = 20
 }
+
+# --- アプリ配備（provision が参照）-----------------------------------------
+variable "app_repo_url" {
+  description = "起動時に clone する公開リポジトリ（配備設定の取得元・ビルドはしない）"
+  type        = string
+  default     = "https://github.com/80-cloud/cloudops-change-guard.git"
+}
+
+variable "app_repo_branch" {
+  description = "配備設定を取得するブランチ"
+  type        = string
+  default     = "main"
+}
+
+variable "public_origin" {
+  description = "公開オリジン（CORS 用・同一オリジン配信のため主に保険。TLS 化後に https://<host> を設定）"
+  type        = string
+  default     = ""
+}
+
+variable "cookie_secure" {
+  description = "JWT クッキーを Secure 属性にするか（TLS 化=Phase 3 までは false）"
+  type        = bool
+  default     = false
+}
+
+variable "spring_profiles_active" {
+  description = "本番 Spring プロファイル（空=Mock / aws=実 read）"
+  type        = string
+  default     = ""
+}
+
+variable "seed_enabled" {
+  description = "初回起動でデモ用初期データを投入するか"
+  type        = bool
+  default     = true
+}
+
+variable "demo_admin_password" {
+  description = "デモ管理者のパスワード。公開デモの探索用でありフロントのデモボタンと一致させる（実データは投入しない）"
+  type        = string
+  default     = "ChangeMe!2026"
+}

@@ -22,3 +22,42 @@ resource "aws_subnet" "private" {
     Name = "${var.project_name}-private-${count.index}"
   }
 }
+
+# --- 公開到達性（アプリを外部公開するための最小ネットワーク）-----------------
+# 現状はプライベートサブネットのみで、外部到達もアウトバウンドも無い。
+# Internet Gateway ＋ パブリックサブネット ＋ ルートを足して初めて到達可能になる。
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.project_name}-igw"
+  }
+}
+
+resource "aws_subnet" "public" {
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(var.vpc_cidr, 8, 100)
+  availability_zone = data.aws_availability_zones.available.names[0]
+
+  tags = {
+    Name = "${var.project_name}-public"
+  }
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-public"
+  }
+}
+
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
