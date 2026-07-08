@@ -90,10 +90,9 @@ resource "aws_iam_role_policy" "app_artifacts" {
 }
 
 # --- GitHub Actions の OIDC 連携（長期キーを配らない）--------------------
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+# OIDC provider はアカウント共有リソースのため既存を参照する（本スタックで作成/削除しない）。
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
 }
 
 data "aws_iam_policy_document" "ci_assume" {
@@ -103,7 +102,7 @@ data "aws_iam_policy_document" "ci_assume" {
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github.arn]
+      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
     }
 
     condition {
