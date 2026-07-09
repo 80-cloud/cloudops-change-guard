@@ -84,6 +84,17 @@ resource "aws_vpc_security_group_egress_rule" "app_http" {
   ip_protocol       = "tcp"
 }
 
+# アプリから RDS PostgreSQL への外向き接続を許可（RDS SG 宛のみ）。
+# これが無いと EC2 は DB へ接続できず、起動時に接続タイムアウトで停止する。
+resource "aws_vpc_security_group_egress_rule" "app_postgres" {
+  security_group_id            = aws_security_group.app.id
+  description                  = "PostgreSQL egress to the RDS security group only"
+  referenced_security_group_id = aws_security_group.rds.id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+}
+
 resource "aws_instance" "app" {
   ami                         = data.aws_ami.al2023.id
   instance_type               = var.instance_type
