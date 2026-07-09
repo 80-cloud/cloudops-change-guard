@@ -115,7 +115,8 @@ resource "aws_instance" "app" {
     encrypted   = true
     kms_key_id  = aws_kms_key.main.arn
     volume_type = "gp3"
-    volume_size = 20
+    # 最新 AL2023 AMI のルートスナップショットが 30GB のため 30 以上が必須（EC2 無料枠の EBS 30GB 内）。
+    volume_size = 30
   }
 
   # provision.sh は起動直後に SSM パラメータと DB 秘密を取得するため、
