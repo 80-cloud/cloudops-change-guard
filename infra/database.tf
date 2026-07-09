@@ -48,12 +48,13 @@ resource "aws_db_instance" "main" {
   publicly_accessible    = false
   multi_az               = false
 
-  backup_retention_period             = 7
+  # tfsec:ignore:aws-rds-specify-backup-retention 無料枠プランのバックアップ保持上限を超えると作成不可のため無効化（デモ用途・シードデータは起動時に再投入）
+  backup_retention_period             = 0
   deletion_protection                 = true
   iam_database_authentication_enabled = true
 
-  performance_insights_enabled    = true
-  performance_insights_kms_key_id = aws_kms_key.main.arn
+  # tfsec:ignore:aws-rds-enable-performance-insights 無料枠プランの制約・追加コスト回避のため無効化（デモ用途）
+  performance_insights_enabled = false
 
   auto_minor_version_upgrade = true
   apply_immediately          = false
