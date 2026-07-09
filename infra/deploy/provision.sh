@@ -67,7 +67,19 @@ sed "s/@PROJECT@/${PROJECT_NAME}/g" "${SRC}/nginx-cloudops.conf" >"/etc/nginx/co
 sed "s/@PROJECT@/${PROJECT_NAME}/g" "${SRC}/cloudops-change-guard.service" >"/etc/systemd/system/${PROJECT_NAME}.service"
 
 # --- 7. 設定・秘密を取得して EnvironmentFile を生成
-get_param() { aws ssm get-parameter --name "/${PROJECT_NAME}/$1" --with-decryption --query 'Parameter.Value' --output text; }
+# IAM ロール反映やパラメータ作成直後の伝播遅延に備え、取得をリトライする。
+get_param() {
+  local name="$1" val=""
+  for _ in $(seq 1 30); do
+    if val="$(aws ssm get-parameter --name "/${PROJECT_NAME}/${name}" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)"; then
+      printf '%s' "${val}"
+      return 0
+    fi
+    sleep 10
+  done
+  echo "get_param ${name} failed after retries" >&2
+  return 1
+}
 DB_URL="$(get_param db_url)"
 DB_USER="$(get_param db_user)"
 DB_SECRET_ARN="$(get_param db_secret_arn)"

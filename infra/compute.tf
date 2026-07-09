@@ -118,6 +118,23 @@ resource "aws_instance" "app" {
     volume_size = 20
   }
 
+  # provision.sh は起動直後に SSM パラメータと DB 秘密を取得するため、
+  # それらとインスタンスロールのポリシーが揃ってから EC2 を起動させる。
+  # （パラメータは RDS に依存するので、実質 RDS 完成後に EC2 が立ち上がる）
+  depends_on = [
+    aws_iam_role_policy.app_secrets,
+    aws_iam_role_policy.app_artifacts,
+    aws_ssm_parameter.jwt_secret,
+    aws_ssm_parameter.db_url,
+    aws_ssm_parameter.db_user,
+    aws_ssm_parameter.db_secret_arn,
+    aws_ssm_parameter.cors_allowed_origin,
+    aws_ssm_parameter.cookie_secure,
+    aws_ssm_parameter.spring_profiles_active,
+    aws_ssm_parameter.seed_enabled,
+    aws_ssm_parameter.admin_password,
+  ]
+
   tags = {
     Name = "${var.project_name}-app"
   }
