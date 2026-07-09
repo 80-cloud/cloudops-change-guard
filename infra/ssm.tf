@@ -36,9 +36,11 @@ resource "aws_ssm_parameter" "db_secret_arn" {
 }
 
 resource "aws_ssm_parameter" "cors_allowed_origin" {
-  name  = "/${var.project_name}/cors_allowed_origin"
-  type  = "String"
-  value = var.public_origin
+  name = "/${var.project_name}/cors_allowed_origin"
+  type = "String"
+  # 空文字は SSM が拒否するため、TLS 化前は同一オリジン配信の既定値を入れておく
+  # （公開後は public_origin=https://<host> を設定して上書きする）。
+  value = var.public_origin == "" ? "http://localhost:5177" : var.public_origin
 }
 
 resource "aws_ssm_parameter" "cookie_secure" {
