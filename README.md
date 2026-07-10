@@ -3,6 +3,8 @@
 AWS環境へのIaC変更（CloudFormation / Terraform）を**安全に統制する**変更管理アプリ。
 `apply` の成功で終わらせず、**変更前の危険検知・リスクに応じた承認・変更後の正常性確認・失敗時の復旧余地**までを一貫して扱う。
 
+**ライブデモ**：https://cloudops-guard.duckdns.org/ （登録不要・デモ管理者アカウントで、リスク判定〜承認〜完了ゲートまで操作できます）
+
 > 設計の中心：「AWS環境の変更は、applyが成功すれば終わりではない。変更前に危険を見つけ、必要な承認を得て、変更後に正常性を確認し、失敗時にも復旧できる状態を残す。」
 
 ## 技術スタック
@@ -56,6 +58,7 @@ AWS連携は抽象化インターフェース越し（MVPはモック、将来 C
 | A-1 | AWS デプロイ雛形（infra/・VPC / RDS / EC2 / IAM / KMS / Budgets）＋安全レール＋認証情報なしの静的 CI | ✅ 完了（実 apply なし） |
 | A-2a | 実 AWS 連携（read-only）：実 plan(S3) 取込・CloudWatch/SSM 実値で実施後ヘルス。Port/Adapter＋プロファイル切替・LocalStack で結合検証 | ✅ 完了 |
 | A-2b | 実 apply 連携：実行結果（適用結果・実行ログ参照）の記録と監査。apply は人の承認ゲート（バックエンドは apply を実行しない）。read-only の実 AWS 接続を最小権限の専用資格で確認 | ✅ 完了 |
+| A-3 | 公開デプロイ：AWS 上で常時稼働させ、登録不要のデモとして公開（EC2＋RDS＋nginx／Let's Encrypt による TLS／GitHub Actions での CD）。安全レール（Budgets・prevent_destroy・人の承認 apply・鍵レス CI・最小権限）を有効化 | ✅ 完了（[ライブ稼働](https://cloudops-guard.duckdns.org/)） |
 
 ## 想定される技術的リスク
 
