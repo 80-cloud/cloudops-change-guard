@@ -8,7 +8,9 @@ User=cloudops
 Group=cloudops
 EnvironmentFile=/etc/@PROJECT@/app.env
 # t3.micro(1GB) 向けにヒープを抑える。jar は CD が /opt/@PROJECT@/app.jar へ配備する。
-ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar /opt/@PROJECT@/app.jar
+# ExecStart は run.sh 経由。起動毎に Secrets Manager の現行 DB パスワードを取り直して
+# app.env の焼き込み値の陳腐化（マネージドパスワードの自動更新）に耐える。
+ExecStart=/opt/@PROJECT@/run.sh
 SuccessExitStatus=143
 Restart=on-failure
 RestartSec=10
