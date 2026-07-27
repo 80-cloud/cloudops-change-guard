@@ -63,8 +63,11 @@ http {
 NGINXMAIN
 sed "s/@PROJECT@/${PROJECT_NAME}/g" "${SRC}/nginx-cloudops.conf" >"/etc/nginx/conf.d/${PROJECT_NAME}.conf"
 
-# --- 6. systemd ユニット
+# --- 6. systemd ユニット＋起動ラッパー（起動毎に DB パスワードを取り直す）
 sed "s/@PROJECT@/${PROJECT_NAME}/g" "${SRC}/cloudops-change-guard.service" >"/etc/systemd/system/${PROJECT_NAME}.service"
+sed "s/@PROJECT@/${PROJECT_NAME}/g" "${SRC}/run.sh" >"/opt/${PROJECT_NAME}/run.sh"
+chown root:cloudops "/opt/${PROJECT_NAME}/run.sh"
+chmod 0750 "/opt/${PROJECT_NAME}/run.sh"
 
 # --- 7. 設定・秘密を取得して EnvironmentFile を生成
 # IAM ロール反映やパラメータ作成直後の伝播遅延に備え、取得をリトライする。
