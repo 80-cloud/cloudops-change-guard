@@ -147,6 +147,14 @@ resource "aws_instance" "app" {
     aws_ssm_parameter.admin_password,
   ]
 
+  # AMI データソースは most_recent = true のため、AWS が新しい AMI を公開すると
+  # 差分が発生する。ami の変更は強制再作成（destroy→再作成）属性なので、
+  # 無関係な変更で terraform apply しただけで稼働中インスタンスが作り直されるのを防ぐ。
+  # AMI を意図的に更新したい場合は、このブロックを一時的に外して apply する。
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   tags = {
     Name = "${var.project_name}-app"
   }
